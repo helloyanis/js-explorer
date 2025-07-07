@@ -1,108 +1,198 @@
-import { WebSocketServer }  from 'ws';
+import WebSocket, { WebSocketServer } from 'ws';
 import { promises as fs } from 'fs';
-import path        from 'path';
-import pLimit      from 'p-limit';
+import path from 'path';
+import pLimit from 'p-limit';
 import { fileURLToPath } from 'url';
+
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __dirname = path.dirname(__filename);
 
-const wss     = new WebSocketServer({ port: 8080 });
-const limit   = pLimit( 10 );    // at most 10 concurrent fs ops
+const wss = new WebSocketServer({ port: 8080 });
+const limit = pLimit(Infinity); // no concurrency limit for fs ops
+const directoryCache = new Map(); // key: directory path, value: array of file/dir info
 
-wss.on('connection', ws => {
-  console.log('Client connected');
-    ws._cancelled = false;
-    ws.on('close', () => {
-        ws._cancelled = true;
-    });
-  ws.on('message', async raw => {
-    if (ws._cancelled) return;
-    console.log('Received message:', raw);
-    const { action, path: dirPath } = JSON.parse(raw);
-    if (action === 'getFiles') {
-      await sendDirectoryListing(dirPath, ws);
-    }
-  });
-  ws.send(JSON.stringify({ action: 'init', message: 'Connected to server' }));
-});
+async function getDirectoryListing(dirPath) {
+  if (directoryCache.has(dirPath)) {
+    return directoryCache.get(dirPath);
+  }
 
-ws.on('error', err => {
-  console.error('WebSocket error:', err);
-});
-
-//Disconnect when client closes connection
-wss.on('close', () => {
-    console.log('Client disconnected');
-});
-
-async function sendDirectoryListing(dirPath, ws) {
-    console.log(`Listing directory: ${dirPath}`);
   let dirents;
   try {
     dirents = await fs.readdir(dirPath, { withFileTypes: true });
   } catch (err) {
-    ws.send(JSON.stringify({ action: 'error', message: err.message }));
-    return;
+    console.error(`Error reading directory ${dirPath}:`, err);
+    return [];
   }
 
-  // 1) immediate reply with names + zero sizes for directories
-  const listing = await Promise.all(dirents.map(dirent => limit(async () => {
-    const fullPath    = path.join(dirPath, dirent.name);
+  const entries = await Promise.all(dirents.map(async dirent => {
+    const fullPath = path.join(dirPath, dirent.name);
     const isDirectory = dirent.isDirectory();
-    let size          = 0;
+    let size = 0;
+
     if (!isDirectory) {
       try {
         const stat = await fs.stat(fullPath);
         size = stat.size;
-      } catch (_) { /* swallow */ }
+      } catch (e) {
+        console.error(`Error getting size for ${fullPath}:`, e);
+        size = 0;
+      }
     }
-    return { name: dirent.name, path: fullPath, isDirectory, size };
-  })));
 
-  ws.send(JSON.stringify({ action: 'files', data: listing }));
+    return {
+      name: dirent.name,
+      path: fullPath,
+      isDirectory,
+      size
+    };
+  }));
 
-  // 2) for each directory, recurse and stream updates
+  directoryCache.set(dirPath, entries);
+  return entries;
+}
+
+async function sendDirectoryListing(dirPath, ws) {
+  const listing = await getDirectoryListing(dirPath);
+  ws.send(JSON.stringify({
+    action: 'files',
+    data: {
+      path: dirPath,
+      files: listing
+    }
+  }));
+
   for (const entry of listing) {
     if (entry.isDirectory) {
-      calculateDirectorySize(entry.path, limit).then(size => {
-        ws.send(JSON.stringify({
-          action: 'updateSize',
-          path:  entry.path,
-          size
-        }));
-      }).catch(() => {});
-    }
-    if (ws._cancelled || ws.readyState !== WebSocket.OPEN) {
-    // client went away — stop doing work
-    throw new Error('Aborting because WS closed');
+      try {
+        await calculateDirectorySize(entry.path, limit, ws);
+      } catch (err) {
+        console.error('Error calculating directory size:', err);
+      }
     }
   }
 }
 
-async function calculateDirectorySize(dir, limit) {
+async function calculateDirectorySize(dir, limit, ws) {
   let total = 0;
+
   let dirents;
-    if (ws._cancelled || ws.readyState !== WebSocket.OPEN) {
-    // client went away — stop doing work
-    throw new Error('Aborting because WS closed');
-    }
   try {
     dirents = await fs.readdir(dir, { withFileTypes: true });
   } catch {
     return 0;
   }
 
-  // accumulate with concurrency limit
+  console.log(dirents.length, 'entries in directory:', dir);
+
   await Promise.all(dirents.map(dirent => limit(async () => {
     const full = path.join(dir, dirent.name);
+    console.log(`Calculating size for: ${full} (${dirent.isDirectory() ? 'directory' : 'file'})`);
+
     if (dirent.isDirectory()) {
-      total += await calculateDirectorySize(full, limit);
+      const subdirSize = await calculateDirectorySize(full, limit, ws);
+      total += subdirSize;
+
+      // Update the subdirectory's size in its parent's directory listing
+      const parentDir = path.dirname(full);
+      if (directoryCache.has(parentDir)) {
+        const parentListing = directoryCache.get(parentDir);
+        const dirIndex = parentListing.findIndex(entry => entry.path === full);
+        if (dirIndex >= 0) {
+          parentListing[dirIndex].size = subdirSize;
+          directoryCache.set(parentDir, parentListing);
+        }
+      }
+
+      // Notify client about the size update for the subdirectory
+      ws.send(JSON.stringify({
+        action: 'updateSize',
+        path: full,
+        size: subdirSize
+      }));
     } else {
       try {
-        const stat = await fs.stat(full);
+        const stat = await withTimeout(fs.stat(full), 3000);
+        console.log(`File size for ${full}: ${stat.size} bytes`);
         total += stat.size;
-      } catch (_) { /* swallow */ }
+
+        // Update the file's size in its parent's directory listing
+        const parentDir = path.dirname(full);
+        if (directoryCache.has(parentDir)) {
+          const parentListing = directoryCache.get(parentDir);
+          const fileIndex = parentListing.findIndex(entry => entry.path === full);
+          if (fileIndex >= 0) {
+            parentListing[fileIndex].size = stat.size;
+            directoryCache.set(parentDir, parentListing);
+          }
+        }
+
+        // Notify client about the size update
+        ws.send(JSON.stringify({
+          action: 'updateSize',
+          path: full,
+          size: stat.size
+        }));
+      } catch (e) {
+        console.error(`Error getting size for ${full}:`, e.message);
+      }
     }
   })));
+
+  // Update the directory's size in its parent's directory listing
+  const parentDir = path.dirname(dir);
+  if (directoryCache.has(parentDir)) {
+    const parentListing = directoryCache.get(parentDir);
+    const dirIndex = parentListing.findIndex(entry => entry.path === dir);
+    if (dirIndex >= 0) {
+      parentListing[dirIndex].size = total;
+      directoryCache.set(parentDir, parentListing);
+
+      // Notify client about the size update for this directory
+      ws.send(JSON.stringify({
+        action: 'updateSize',
+        path: dir,
+        size: total
+      }));
+    }
+  }
+
   return total;
 }
+
+async function withTimeout(promise, timeoutMs) {
+  let timeout;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeout = setTimeout(() => {
+      reject(new Error('Operation timed out'));
+    }, timeoutMs);
+  });
+
+  return Promise.race([
+    promise.finally(() => clearTimeout(timeout)),
+    timeoutPromise
+  ]);
+}
+
+wss.on('connection', ws => {
+  console.log('Client connected');
+  ws._cancelled = false;
+
+  ws.on('close', () => {
+    console.log('Client disconnected');
+    ws._cancelled = true;
+  });
+
+  ws.on('message', async raw => {
+    if (ws._cancelled) return;
+    console.log('Received message:', raw);
+
+    const { action, path: dirPath } = JSON.parse(raw);
+    if (action === 'getFiles') {
+      await sendDirectoryListing(dirPath, ws);
+    }
+  });
+
+  ws.send(JSON.stringify({ action: 'init', message: 'Connected to server' }));
+});
+
+console.log('Server started on port 8080');
