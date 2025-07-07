@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "p-limit": "^6.2.0",
+    "ws": "^8.18.3"
+  },
+   "type": "module"
+}
