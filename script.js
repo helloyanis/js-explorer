@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderList(items) {
     fileListEl.innerHTML = '';
-    const ul = document.createElement('ul');
+    const ul = document.createElement('mdui-list');
     let sortedItems = [...items];
     if (sortMethod === 'name') {
       sortedItems.sort((a, b) => a.name.localeCompare(b.name));
@@ -116,27 +116,29 @@ document.addEventListener('DOMContentLoaded', () => {
       sortedItems.sort((a, b) => b.size - a.size);
     }
     // Add list elemeent to go up one directory
-    if (currentPath !== '/') {
-      const upItem = document.createElement('li');
+      const upItem = document.createElement('mdui-list-item');
       upItem.innerHTML = '🔼 Up one directory';
       upItem.onclick = () => {
         navigateToDirectory(dirname(currentPath));
       };
       ul.appendChild(upItem);
-    }
     sortedItems.forEach(item => {
       const normPath = normalizePath(item.path);
-      const li = document.createElement('li');
+      const li = document.createElement('mdui-list-item');
       li.dataset.path = normPath;
       if (item.isDirectory) {
         const dirSize = getDirectorySize(item.path);
-        li.innerHTML = `📂 ${item.name} (${formatSize(dirSize)})`;
+        li.innerHTML = `${item.name}<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg></mdui-icon>`;
+        li.description=formatSize(dirSize)
+        li.size=dirSize;
       } else {
-        li.innerHTML = `📄 ${item.name} (${item.sizeStr})`;
+        li.innerHTML = `${item.name} (${item.sizeStr})<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T720-80H240Zm280-520v-200H240v640h480v-440H520ZM240-800v200-200 640-640Z"/></svg></mdui-icon>`;
       }
       li.onclick = () => {
         if (item.isDirectory) {
           navigateToDirectory(item.path);
+        }else {
+          window.open("file:///" + item.path, '_blank');
         }
       };
       ul.appendChild(li);

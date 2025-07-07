@@ -112,7 +112,7 @@ async function calculateDirectorySize(dir, limit, ws) {
       }));
     } else {
       try {
-        const stat = await withTimeout(fs.stat(full), 3000);
+        const stat = await fs.stat(full)
         console.log(`File size for ${full}: ${stat.size} bytes`);
         total += stat.size;
 
