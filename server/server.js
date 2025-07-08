@@ -62,6 +62,7 @@ async function sendDirectoryListing(dirPath, ws) {
   }));
 
   for (const entry of listing) {
+    if (ws._cancelled) break;
     if (entry.isDirectory) {
       try {
         await calculateDirectorySize(entry.path, limit, ws);
@@ -73,6 +74,7 @@ async function sendDirectoryListing(dirPath, ws) {
 }
 
 async function calculateDirectorySize(dir, limit, ws) {
+  if (ws._cancelled) return 0;
   let total = 0;
 
   let dirents;

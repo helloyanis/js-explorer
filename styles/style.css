@@ -1,0 +1,18 @@
+*{
+    font-family: system-ui
+}
+.center-screen {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+#locationSelect {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    flex-direction: column;
+}
+.hidden {
+    display: none !important;
+}

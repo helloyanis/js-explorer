@@ -5,13 +5,28 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>Windows Explorer 2!</title>
   <script src="mdui.global.js"></script>
-  <link rel="stylesheet" href="mdui.css">
+  <link rel="stylesheet" href="styles/mdui.css">
+  <link rel="stylesheet" href="styles/style.css">
 </head>
 <body>
-  <div id="sortControls">
-    <!-- Sort controls will be added by JavaScript -->
+  <div id="locationSelect">
+    <h1>Pick a folder location to analyze</h1>
+    <mdui-text-field id="locationInput" label="Folder location" placeholder="C:\Windows" helper="Paste here the folder location from your file explorer!" helper-on-focus></mdui-text-field>
+    <mdui-button id="analyzeButton">Analyze this folder</mdui-button>
+    <mdui-button id="analyzeDiskButton" variant="outlined">Analyze the entire disk (slow!)</mdui-button>
   </div>
-  <div id="fileList"></div>
+  <div id="sortControls" class="hidden">
+        <mdui-dropdown>
+    <mdui-button slot="trigger">Filter</mdui-button>
+    <mdui-menu>
+      <mdui-menu-item id="sortByName">By name</mdui-menu-item>
+      <mdui-menu-item id="sortBySize">By size</mdui-menu-item>
+    </mdui-menu>
+  </mdui-dropdown>
+  </div>
+  <div id="fileList" class="hidden">
+    <mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>
+  </div>
   <script src="script.js"></script>
 </body>
 </html>
