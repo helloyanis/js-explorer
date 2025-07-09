@@ -1,3 +1,4 @@
+// script.js
 document.addEventListener('DOMContentLoaded', () => {
   let directoryCache = new Map();
   let currentPath = '';
@@ -18,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadingMessage   = document.getElementById('loadingMessage');
   const resetButton      = document.getElementById('resetButton');
   const sizeFilterEl    = document.getElementById('sizeFilter');
-
   scanButton.addEventListener('click', () => {
     filePicker.click();
   });
@@ -43,38 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadingMessage.classList.add('hidden');
     mdui.snackbar({ message: 'File selection cancelled.' });
   });
-  sizeFilterEl.addEventListener('input', () => {
-    const value = parseFloat(sizeFilterEl.value);
-    if (isNaN(value) || value < 0) {
-      fileSizeFilter = 0;
-    } else {
-      fileSizeFilter = value * 1024 * 1024; // convert to bytes
-    }
-    if (displayMode === 'all') {
-      renderAllFiles();
-    } else {
-      renderList(directoryCache.get(currentPath) || []);
-    }
-  });
-  resetButton.addEventListener('click', () => {
-    // reset state
-    directoryCache.clear();
-    currentPath = '';
-    initialPath = '';
-    locationSelectEl.classList.remove('hidden');
-    sortControlsEl.classList.add('hidden');
-    fileListEl.classList.add('hidden');
-    fileListEl.innerHTML = '';
-    if (worker) {
-      worker.terminate();
-      worker = null;
-    }
-    filePicker.value = ''; // reset file input
-    scanButton.disabled = false;
-    scanButton.loading = false;
-    mdui.snackbar({ message: 'Ready for a new scan!' });
-  });
-    // Add drag-and-drop event listeners
+
+      // Add drag-and-drop event listeners
   document.addEventListener('dragover', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -87,74 +57,58 @@ document.addEventListener('DOMContentLoaded', () => {
     // Remove visual feedback
     document.body.classList.remove('dragover');
   });
-  document.addEventListener('drop', (e) => {
+  document.addEventListener('drop', async e => {
     e.preventDefault();
     e.stopPropagation();
     document.body.classList.remove('dragover');
 
-    // Immediately show loading UI
+    const items = e.dataTransfer.items;
+    if (!items || items.length === 0) {
+      mdui.snackbar({ message: 'No files or directories dropped.' });
+      return resetUI();
+    }
+
+    // Show loading UI
     locationSelectEl.classList.add('hidden');
     sortControlsEl.classList.remove('hidden');
     fileListEl.classList.remove('hidden');
     fileListEl.innerHTML = '<mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
     loadingMessage.classList.remove('hidden');
 
-    const items = e.dataTransfer.items;
+    // 1) Traverse all entries and collect the File objects
     const fileList = [];
+    let processed = 0;
+    const total = items.length;
 
-    if (!items || items.length === 0) {
-      mdui.snackbar({ message: 'No files or directories dropped.' });
-      resetUI();
-      return;
-    }
-
-    if (worker) {
-      worker.terminate();
-      worker = null;
-    }
-
-    // Initialize worker immediately
-    worker = new Worker('web-worker.js');
-    worker.onmessage = handleWorkerMessage;
-    worker.postMessage({ action: 'init', files: [] });
-
-    // Process files
-    let itemsProcessed = 0;
-    const totalItems = items.length;
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (item.kind === 'file') {
-        const entry = item.webkitGetAsEntry();
-        if (entry) {
-          traverseFileTree(entry, file => {
-            fileList.push(file);
-            // Send files to worker in batches
-            if (fileList.length >= 100) {
-              worker.postMessage({
-                action: 'addFiles',
-                files: fileList.splice(0, 100)
-              });
-            }
-          }, () => {
-            itemsProcessed++;
-            if (itemsProcessed === totalItems) {
-              if (fileList.length > 0) {
-                worker.postMessage({
-                  action: 'addFiles',
-                  files: fileList,
-                  isLastBatch: true
-                });
-              } else {
-                mdui.snackbar({ message: 'No valid files found in the drop.' });
-                resetUI();
-              }
-            }
-          });
+    await new Promise(resolve => {
+      for (let i = 0; i < total; i++) {
+        const entry = items[i].webkitGetAsEntry();
+        if (!entry) {
+          processed++;
+          if (processed === total) resolve();
+          continue;
         }
+        traverseFileTree(entry,
+          file => fileList.push(file),
+          () => {
+            processed++;
+            if (processed === total) {
+              resolve();
+            }
+          }
+        );
       }
+    });
+
+    if (fileList.length === 0) {
+      mdui.snackbar({ message: 'No valid files found in the drop.' });
+      return resetUI();
     }
+
+    // 2) Kick off your normal scan logic
+    startLocalScan(fileList);
   });
+
 
   
 // Function to traverse file tree
@@ -201,7 +155,38 @@ function traverseFileTree(entry, callback, onComplete) {
     fileListEl.innerHTML = '';
     loadingMessage.classList.add('hidden');
   }
-
+  sizeFilterEl.addEventListener('input', () => {
+    const value = parseFloat(sizeFilterEl.value);
+    if (isNaN(value) || value < 0) {
+      fileSizeFilter = 0;
+    } else {
+      fileSizeFilter = value * 1024 * 1024; // convert to bytes
+    }
+    if (displayMode === 'all') {
+      renderAllFiles();
+    } else {
+      renderList(directoryCache.get(currentPath) || []);
+    }
+  });
+  resetButton.addEventListener('click', () => {
+    // reset state
+    directoryCache.clear();
+    currentPath = '';
+    initialPath = '';
+    locationSelectEl.classList.remove('hidden');
+    sortControlsEl.classList.add('hidden');
+    fileListEl.classList.add('hidden');
+    fileListEl.innerHTML = '';
+    if (worker) {
+      worker.terminate();
+      worker = null;
+    }
+    filePicker.value = ''; // reset file input
+    scanButton.disabled = false;
+    scanButton.loading = false;
+    mdui.snackbar({ message: 'Ready for a new scan!' });
+  });
+  // Kick things off
   function startLocalScan(fileList) {
     // Start measuring the scan time
     startTime = performance.now();
@@ -212,17 +197,17 @@ function traverseFileTree(entry, callback, onComplete) {
     fileListEl.innerHTML = '<mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
     // launch worker
     if (worker) worker.terminate();
-    try {
-      worker = new Worker('web-worker.js');
-      worker.onmessage = handleWorkerMessage;
-      worker.postMessage({ action: 'init', files: fileList });
-      // request only top-level after init
-      worker.addEventListener('message', ev => {
-        if (ev.data.action === 'ready') {
-          currentPath = initialPath = '';
-          requestDirectory('');  // send root listing
-        }
-      });
+    try{
+    worker = new Worker('web-worker.js');
+    worker.onmessage = handleWorkerMessage;
+    worker.postMessage({ action: 'init', files: fileList });
+    // request only top‐level after init
+    worker.addEventListener('message', ev => {
+      if (ev.data.action === 'ready') {
+        currentPath = initialPath = '';
+        requestDirectory('');  // send root listing
+      }
+    });
     } catch (err) {
       mdui.alert({
         headline: 'Failed to start worker',
@@ -297,10 +282,12 @@ function traverseFileTree(entry, callback, onComplete) {
     if (displayMode === 'all') renderAllFiles();
     else renderList(directoryCache.get(currentPath) || []);
   });
+
   document.getElementById('showFileTree').addEventListener('click', () => {
     displayMode = 'tree';
     renderList(directoryCache.get(currentPath) || []);
   });
+
   document.getElementById('showAllFiles').addEventListener('click', () => {
     displayMode = 'all';
     renderAllFiles();
@@ -369,6 +356,7 @@ function traverseFileTree(entry, callback, onComplete) {
     fileListEl.appendChild(ul);
     fileListEl.scrollTop = scrollPosition;
   }
+
   function renderAllFiles() {
   // 1) collect every file entry
   const allItems = [];
@@ -379,8 +367,10 @@ function traverseFileTree(entry, callback, onComplete) {
       }
     });
   }
+
   // 2) sort them
   const sorted = sortItems(allItems, sortMethod);
+
   // 3) render exactly like renderList()
   const ul = document.createElement('mdui-list');
   const totalSize = sorted.reduce((sum, f) => sum + (f.size || 0), 0);
@@ -391,12 +381,14 @@ function traverseFileTree(entry, callback, onComplete) {
     }
     ul.appendChild(createListItem(item, totalSize));
   });
+
   // 4) swap into the DOM
   const scrollPosition = fileListEl.scrollTop;
   fileListEl.innerHTML = '';
   fileListEl.appendChild(ul);
   fileListEl.scrollTop = scrollPosition;
 }
+
   /**
    * Trie les éléments selon la méthode choisie.
    * @param {Array} items
@@ -455,7 +447,7 @@ function traverseFileTree(entry, callback, onComplete) {
     const isIndeterminate = getIndeterminateStatus(item);
     const progressHTML = generateProgressHTML(item, proportion, isIndeterminate);
     if (item.isDirectory) {
-      li.innerHTML = `${getFileName(item.name)}<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h320v-80H320v80Zm0 120h320v-80H320v80Zm0 120h200v-80H320v80ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h480l240 240v480q0 33-23.5 56.5T720-80H240Zm280-520v-200H240v640h480v-440H520ZM240-800v200-200 640-640Z"/></svg></mdui-icon>${progressHTML}<span slot="description">${isIndeterminate?"Calculating size...":`<b>${formatSize(item.size)}</b>`}</span>`;
+      li.innerHTML = `${getFileName(item.name)}<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg></mdui-icon>${progressHTML}<span slot="description">${isIndeterminate?"Calculating size...":`<b>${formatSize(item.size)}</b>`}</span>`;
     } else {
       li.innerHTML = `${getFileName(item.name)}${getFileIcon(item.name)}${progressHTML}<span slot="description"><b>${formatSize(item.size)}</b></span>`;
       li.nonclickable = true;
@@ -481,6 +473,7 @@ function traverseFileTree(entry, callback, onComplete) {
     }
     return 0;
   }
+
   /**
    * Détermine si la barre de progression doit être indéterminée.
    * @param {object} item
@@ -492,6 +485,7 @@ function traverseFileTree(entry, callback, onComplete) {
     }
     return false;
   }
+
   /**
    * Génère le HTML de la barre de progression.
    * @param {object} item
@@ -505,6 +499,7 @@ function traverseFileTree(entry, callback, onComplete) {
     }
     return `<mdui-linear-progress value="${proportion}"></mdui-linear-progress>`;
   }
+
     /**
    * Retourne l'icône appropriée pour un fichier.
    * @param {string} fileName
@@ -519,7 +514,7 @@ function traverseFileTree(entry, callback, onComplete) {
       case 'docx':
       case 'odt':
       case 'pdf':
-        return '<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M320-440h320v-80H320v80Zm0 120h320v-80H320v80Zm0 120h200v-80H320v80ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h480l240 240v480q0 33-23.5 56.5T720-80H240Zm280-520v-200H240v640h480v-440H520ZM240-800v200-200 640-640Z"/></svg></mdui-icon>';
+        return '<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M320-440h320v-80H320v80Zm0 120h320v-80H320v80Zm0 120h200v-80H320v80ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T720-80H240Zm280-520v-200H240v640h480v-440H520ZM240-800v200-200 640-640Z"/></svg></mdui-icon>';
       case 'jpg':
       case 'jpeg':
       case 'png':
@@ -538,7 +533,7 @@ function traverseFileTree(entry, callback, onComplete) {
       case 'mkv':
       case 'mov':
       case 'wmv':
-        return '<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="m160-800 80 160h120l-80-160h80l80 160h120l-80-160h120q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800Zm0 240v320h640v-320H160Zm0 0v320-320Z"/></svg></mdui-icon>';
+        return '<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="m160-800 80 160h120l-80-160h80l80 160h120l-80-160h80l80 160h120l-80-160h120q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800Zm0 240v320h640v-320H160Zm0 0v320-320Z"/></svg></mdui-icon>';
       case 'iso':
       case 'dmg':
       case 'vdmk':
