@@ -6,39 +6,40 @@ document.addEventListener('DOMContentLoaded', () => {
   let sortMethod = 'name';
   let renderTimeout = null;
   let worker = null;
-
+  let startTime = 0;
+  let endTime = 0;
   // UI elements
   const locationSelectEl = document.getElementById('locationSelect');
   const fileListEl       = document.getElementById('fileList');
   const sortControlsEl   = document.getElementById('sortControls');
   const filePicker       = document.getElementById('filePicker');
   const scanButton       = document.getElementById('scanButton');
+  const loadingMessage   = document.getElementById('loadingMessage');
   const resetButton      = document.getElementById('resetButton');
-
   scanButton.addEventListener('click', () => {
     filePicker.click();
   });
-
   filePicker.addEventListener('change', () => {
     scanButton.disabled = false;
     scanButton.loading = false;
+    loadingMessage.classList.add('hidden');
     if (!filePicker.files.length) {
       mdui.snackbar({ message: 'Please pick at least one file or a directory! (If you selected system files, please retry your selection without them!)' });
       return;
     }
     startLocalScan(Array.from(filePicker.files));
   });
-
   filePicker.addEventListener("click", (e) => {
     scanButton.disabled = true;
     scanButton.loading = true;
+    loadingMessage.classList.remove('hidden');
   });
-
   filePicker.addEventListener("cancel", (e) => {
     scanButton.disabled = false;
     scanButton.loading = false;
+    loadingMessage.classList.add('hidden');
+    mdui.snackbar({ message: 'File selection cancelled.' });
   });
-
   resetButton.addEventListener('click', () => {
     // reset state
     directoryCache.clear();
@@ -57,66 +58,72 @@ document.addEventListener('DOMContentLoaded', () => {
     scanButton.loading = false;
     mdui.snackbar({ message: 'Ready for a new scan!' });
   });
-
   // Kick things off
   function startLocalScan(fileList) {
-    // reset state
-    directoryCache.clear();
-    currentPath = '';
-    initialPath = '';
-    sortMethod  = 'name';
-
+    // Start measuring the scan time
+    startTime = performance.now();
     // swap UI
     locationSelectEl.classList.add('hidden');
     sortControlsEl.classList.remove('hidden');
     fileListEl.classList.remove('hidden');
     fileListEl.innerHTML = '<mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
-
     // launch worker
     if (worker) worker.terminate();
-    worker = new Worker('worker.js');
+    try{
+    worker = new Worker('web-worker.js');
     worker.onmessage = handleWorkerMessage;
     worker.postMessage({ action: 'init', files: fileList });
+    // request only top‐level after init
+    worker.addEventListener('message', ev => {
+      if (ev.data.action === 'ready') {
+        currentPath = initialPath = '';
+        requestDirectory('');  // send root listing
+      }
+    });
+    } catch (err) {
+      mdui.alert({
+        headline: 'Failed to start worker',
+        description: 'Your browser does not support Web Workers or the worker script could not be loaded. If you are running this locally, please ensure you are using a local server (e.g. Python HTTP server, Node.js, etc.) and not opening the HTML file directly in the browser. The script "STARTPROJECT.bat" can do that for you.',
+      });
+      console.error('Worker error:', err);
+      return;
+    }
   }
-
   function handleWorkerMessage(ev) {
     const msg = ev.data;
     switch (msg.action) {
       case 'files':
-        cacheAndMaybeRender(msg.path, msg.files);
+        directoryCache.set(msg.path, msg.files);
+        if (msg.path === currentPath) {
+          renderList(msg.files);
+        }
         break;
-      case 'updateSize':
       case 'updateDone':
         handleSizeUpdate(msg);
         break;
       case 'error':
         mdui.snackbar({ message: msg.message });
+        console.error(msg);
+        break;
+      case 'allDone':
+        endTime = performance.now();
+        const duration = (endTime - startTime).toFixed(2);
+        console.log(`${Array.from(filePicker.files).length} items (${directoryCache.size} directories) scanned in ${duration} ms`);
+        mdui.snackbar({ message: `${Array.from(filePicker.files).length} items (${directoryCache.size} directories) scanned in ${duration} ms` });
         break;
       default:
         console.warn('Unknown worker message', msg);
     }
   }
-
-  function cacheAndMaybeRender(path, files) {
-    const norm = normalizePath(path);
-    directoryCache.set(norm, files.map(formatFileEntry));
-    // first directory seen becomes root
-    if (initialPath === '') {
-      initialPath = norm;
-      currentPath = norm;
-    }
-    if (currentPath === norm) {
-      renderList(directoryCache.get(norm));
-    }
+  function requestDirectory(path) {
+    worker.postMessage({ action: 'getFiles', path });
   }
-
   function handleSizeUpdate({ path, size, action }) {
     const norm = normalizePath(path);
     const parent = dirname(norm);
     updateDirectoryCacheSize(parent, norm, size, action);
     if (currentPath === parent) scheduleRender(parent);
   }
-
   function updateDirectoryCacheSize(parentDir, itemPath, size, action) {
     if (!directoryCache.has(parentDir)) return;
     const listing = directoryCache.get(parentDir);
@@ -131,14 +138,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     directoryCache.set(parentDir, listing);
   }
-
   function scheduleRender(dirPath) {
     clearTimeout(renderTimeout);
     renderTimeout = setTimeout(() => {
       renderList(directoryCache.get(dirPath) || []);
     }, 100);
   }
-
   document.getElementById('sortByName').addEventListener('click', () => {
     sortMethod = 'name';
     renderList(directoryCache.get(currentPath));
@@ -147,7 +152,6 @@ document.addEventListener('DOMContentLoaded', () => {
     sortMethod = 'size';
     renderList(directoryCache.get(currentPath));
   });
-
   /**
    * Normalise un chemin de fichier.
    * @param {string} path
@@ -157,7 +161,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!path) return '';
     return path.replace(/\\/g, '/').replace(/\/$/, '');
   }
-
   /**
    * Retourne le dossier parent d'un chemin.
    * @param {string} filePath
@@ -166,11 +169,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function dirname(filePath) {
     const normalized = normalizePath(filePath);
     const parts = normalized.split('/');
-    if (parts.length <= 1) return '/';
+    if (parts.length <= 1) return '';
     parts.pop();
-    return parts.join('/') || '/';
+    return parts.join('/') || '';
   }
-
   /**
    * Formate une taille en octets en chaîne lisible.
    * @param {number} bytes
@@ -183,7 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const i = Math.floor(Math.log(bytes)/Math.log(k));
     return (bytes / Math.pow(k,i)).toFixed(2) + ' ' + sizes[i];
   }
-
   /**
    * Formate un objet fichier/dossier avec taille lisible.
    * @param {object} file
@@ -196,31 +197,23 @@ document.addEventListener('DOMContentLoaded', () => {
       sizeStr: formatSize(file.size)
     };
   }
-
   /**
    * Rend la liste des fichiers/dossiers.
    * @param {Array} items
    */
   function renderList(items) {
-    console.log(`Rendering ${items.length} items`);
     const ul = document.createElement('mdui-list');
     const parentTotalSize = items.reduce((sum, item) => sum + (item.size || 0), 0);
-
     ul.appendChild(createUpDirectoryItem());
-
-    let sortedItems = sortItems(items, sortMethod);
-
-    sortedItems.forEach(item => {
-      ul.appendChild(createListItem(item, parentTotalSize));
-    });
-
-    // Remplace la liste actuelle en préservant la position de scroll
+    sortItems(items, sortMethod).forEach(item =>
+      ul.appendChild(createListItem(item, parentTotalSize))
+    );
+    // preserve scroll
     const scrollPosition = fileListEl.scrollTop;
     fileListEl.innerHTML = '';
     fileListEl.appendChild(ul);
     fileListEl.scrollTop = scrollPosition;
   }
-
   /**
    * Trie les éléments selon la méthode choisie.
    * @param {Array} items
@@ -236,7 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     return sorted;
   }
-
   /**
    * Crée l'élément "Remonter d'un dossier".
    * @returns {HTMLElement}
@@ -245,29 +237,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const upItem = document.createElement('mdui-list-item');
     upItem.innerHTML = '🔼 Up one directory';
     upItem.onclick = () => {
-      if (currentPath === normalizePath(initialPath)) {
-        mdui.snackbar({message: 'You are already at the root directory.'});
+      if (currentPath === initialPath) {
+        mdui.snackbar({ message: 'You are already at the root directory.' });
         return;
       }
       navigateToDirectory(dirname(currentPath));
     };
     return upItem;
   }
-
   /**
    * Navigue vers un dossier donné.
    * @param {string} dirPath
    */
   function navigateToDirectory(dirPath) {
-    const normalizedDirPath = normalizePath(dirPath);
-    currentPath = normalizedDirPath;
-    if (directoryCache.has(normalizedDirPath)) {
-      renderList(directoryCache.get(normalizedDirPath));
+    currentPath = normalizePath(dirPath);
+    if (!directoryCache.has(currentPath)) {
+      // lazy‐load from worker
+      requestDirectory(currentPath);
     } else {
-      ws.send(JSON.stringify({ action: 'getFiles', path: dirPath }));
+      renderList(directoryCache.get(currentPath));
     }
   }
-
   /**
    * Crée un élément de liste pour un fichier/dossier.
    * @param {object} item
@@ -278,17 +268,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const normPath = normalizePath(item.path);
     const li = document.createElement('mdui-list-item');
     li.dataset.path = normPath;
-
     const proportion = calculateProportion(item, parentTotalSize);
     const isIndeterminate = getIndeterminateStatus(item);
     const progressHTML = generateProgressHTML(item, proportion, isIndeterminate);
-
     if (item.isDirectory) {
       li.innerHTML = `${getFileName(item.name)}<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg></mdui-icon>${progressHTML}<span slot="description">${isIndeterminate?"Calculating size...":`<b>${formatSize(item.size)}</b>`}</span>`;
     } else {
-      li.innerHTML = `${getFileName(item.name)}${getFileIcon(item.name)}${progressHTML}<span slot="description"><b>${item.sizeStr || '</b>Unknown size<b>'}</b></span>`;
+      li.innerHTML = `${getFileName(item.name)}${getFileIcon(item.name)}${progressHTML}<span slot="description"><b>${formatSize(item.size)}</b></span>`;
     }
-
     li.onclick = () => {
       if (item.isDirectory) {
         navigateToDirectory(item.path);
@@ -298,7 +285,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     return li;
   }
-
   /**
    * Calcule la proportion de la taille par rapport au parent.
    * @param {object} item
@@ -407,7 +393,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return '<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T720-80H240Zm280-520v-200H240v640h480v-440H520ZM240-800v200-200 640-640Z"/></svg></mdui-icon>';
     }
   }
-
    /**
    * Extrait le nom du fichier depuis un chemin.
    * @param {string} name
@@ -416,12 +401,4 @@ document.addEventListener('DOMContentLoaded', () => {
   function getFileName(name) {
     return name.substring(name.lastIndexOf("\\") + 1);
   }
-
-
-
-  // You can simply copy/paste your existing helper functions here:
-  // normalizePath, dirname, formatSize, formatFileEntry,
-  // renderList, createUpDirectoryItem, createListItem,
-  // calculateProportion, getIndeterminateStatus, generateProgressHTML,
-  // getFileIcon, getFileName.
 });

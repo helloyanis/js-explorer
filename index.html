@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Windows Explorer 2 (Local-only)</title>
+  <title>Windows Explorer 2</title>
   <script src="mdui.global.js"></script>
   <link rel="stylesheet" href="styles/mdui.css">
   <link rel="stylesheet" href="styles/style.css">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
 </head>
 <body>
   <div id="locationSelect">
-    <h1>Pick a folder (or files) to analyze</h1>
+    <h1>Pick a folder to analyze</h1>
     <mdui-button id="scanButton" class="mdui-color-theme-accent mdui-ripple">
       Select a folder
     </mdui-button>
@@ -19,8 +20,9 @@
            webkitdirectory
            multiple
            class="hidden" />
-  </div>
+    <h3 id="loadingMessage" class="hidden">Now loading. Please wait! Folders containing many files can take a few minutes.</h3>
 
+  </div>
   <div id="sortControls" class="hidden">
     <!-- same as before -->
     <mdui-dropdown>
