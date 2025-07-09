@@ -1,8 +1,5 @@
 {
   "dependencies": {
-    "chokidar": "^4.0.3",
-    "fast-folder-size": "^2.4.0",
-    "p-limit": "^6.2.0",
     "ws": "^8.18.3"
   },
   "type": "module"

@@ -16,12 +16,19 @@
     <mdui-button id="analyzeDiskButton" variant="outlined">Analyze the entire disk (slow!)</mdui-button>
   </div>
   <div id="sortControls" class="hidden">
-        <mdui-dropdown>
-    <mdui-button slot="trigger">Filter</mdui-button>
-    <mdui-menu>
-      <mdui-menu-item id="sortByName">By name</mdui-menu-item>
-      <mdui-menu-item id="sortBySize">By size</mdui-menu-item>
-    </mdui-menu>
+    <mdui-dropdown>
+      <mdui-button slot="trigger">Filter</mdui-button>
+      <mdui-menu>
+        <mdui-menu-item id="sortByName">By name</mdui-menu-item>
+        <mdui-menu-item id="sortBySize">By size</mdui-menu-item>
+      </mdui-menu>
+  </mdui-dropdown>
+      <mdui-dropdown>
+      <mdui-button slot="trigger">Display</mdui-button>
+      <mdui-menu>
+        <mdui-menu-item id="showFileTree">File tree</mdui-menu-item>
+        <mdui-menu-item id="showAllFiles">All files (slow!)</mdui-menu-item>
+      </mdui-menu>
   </mdui-dropdown>
   </div>
   <div id="fileList" class="hidden">

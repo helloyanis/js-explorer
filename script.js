@@ -59,6 +59,11 @@ document.addEventListener('DOMContentLoaded', () => {
       handleDirectoryListing(data.data);
     } else if (data.action === 'updateSize' || data.action === 'updateDone') {
       handleSizeUpdate(data);
+    } else if (data.action === 'error') {
+      console.error('Error from server:', data.message);
+      mdui.snackbar({message: data.message});
+    } else {
+      console.warn('Unknown action:', data.action);
     }
   }
 
