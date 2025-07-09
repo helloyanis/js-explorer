@@ -1,83 +1,151 @@
+// script.js
 document.addEventListener('DOMContentLoaded', () => {
-  let ws, fileListEl, directoryCache, currentPath, sortMethod, renderTimeout, initialPath;
+  let directoryCache = new Map();
+  let currentPath = '';
+  let initialPath = '';
+  let sortMethod = 'name';
+  let renderTimeout = null;
+  let worker = null;
 
-  /**
-   * Initialise l'explorateur de fichiers et la connexion WebSocket.
-   * @param {string} path - Le chemin initial à explorer.
-   */
-  function initFileExplorer(path) {
-    setupUI();
-    ws = createWebSocket(path);
-    directoryCache = new Map();
-    currentPath = normalizePath(path);
-    initialPath = normalizePath(path);
-    sortMethod = 'name';
-    renderTimeout = null;
-  }
+  // UI elements
+  const locationSelectEl = document.getElementById('locationSelect');
+  const fileListEl       = document.getElementById('fileList');
+  const sortControlsEl   = document.getElementById('sortControls');
+  const filePicker       = document.getElementById('filePicker');
+  const scanButton       = document.getElementById('scanButton');
+  const resetButton      = document.getElementById('resetButton');
 
-  /**
-   * Configure l'interface utilisateur initiale.
-   */
-  function setupUI() {
-    fileListEl = document.getElementById('fileList');
+  scanButton.addEventListener('click', () => {
+    filePicker.click();
+  });
+
+  filePicker.addEventListener('change', () => {
+    scanButton.disabled = false;
+    scanButton.loading = false;
+    if (!filePicker.files.length) {
+      mdui.snackbar({ message: 'Please pick at least one file or a directory! (If you selected system files, please retry your selection without them!)' });
+      return;
+    }
+    startLocalScan(Array.from(filePicker.files));
+  });
+
+  filePicker.addEventListener("click", (e) => {
+    scanButton.disabled = true;
+    scanButton.loading = true;
+  });
+
+  filePicker.addEventListener("cancel", (e) => {
+    scanButton.disabled = false;
+    scanButton.loading = false;
+  });
+
+  resetButton.addEventListener('click', () => {
+    // reset state
+    directoryCache.clear();
+    currentPath = '';
+    initialPath = '';
+    locationSelectEl.classList.remove('hidden');
+    sortControlsEl.classList.add('hidden');
+    fileListEl.classList.add('hidden');
+    fileListEl.innerHTML = '';
+    if (worker) {
+      worker.terminate();
+      worker = null;
+    }
+    filePicker.value = ''; // reset file input
+    scanButton.disabled = false;
+    scanButton.loading = false;
+    mdui.snackbar({ message: 'Ready for a new scan!' });
+  });
+
+  // Kick things off
+  function startLocalScan(fileList) {
+    // reset state
+    directoryCache.clear();
+    currentPath = '';
+    initialPath = '';
+    sortMethod  = 'name';
+
+    // swap UI
+    locationSelectEl.classList.add('hidden');
+    sortControlsEl.classList.remove('hidden');
     fileListEl.classList.remove('hidden');
-    document.querySelector('#sortControls').classList.remove('hidden');
-    document.querySelector('#locationSelect').classList.add('hidden');
+    fileListEl.innerHTML = '<mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
+
+    // launch worker
+    if (worker) worker.terminate();
+    worker = new Worker('worker.js');
+    worker.onmessage = handleWorkerMessage;
+    worker.postMessage({ action: 'init', files: fileList });
   }
 
-  /**
-   * Crée et configure la connexion WebSocket.
-   * @param {string} path - Le chemin à envoyer lors de la connexion.
-   * @returns {WebSocket}
-   */
-  function createWebSocket(path) {
-    const socket = new WebSocket('ws://localhost:8080');
-    socket.onopen = () => handleWSOpen(socket, path);
-    socket.onmessage = handleWSMessage;
-    socket.onerror = handleWSError;
-    socket.onclose = () => console.log('Disconnected from server');
-    return socket;
-  }
-
-  /**
-   * Gère l'ouverture de la connexion WebSocket.
-   * @param {WebSocket} socket
-   * @param {string} path
-   */
-  function handleWSOpen(socket, path) {
-    console.log('Connected to server');
-    socket.send(JSON.stringify({ action: 'getFiles', path: path }));
-  }
-
-  /**
-   * Gère les messages reçus via WebSocket.
-   * @param {MessageEvent} ev
-   */
-  function handleWSMessage(ev) {
-    const data = JSON.parse(ev.data);
-    if (data.action === 'files') {
-      handleDirectoryListing(data.data);
-    } else if (data.action === 'updateSize' || data.action === 'updateDone') {
-      handleSizeUpdate(data);
+  function handleWorkerMessage(ev) {
+    const msg = ev.data;
+    switch (msg.action) {
+      case 'files':
+        cacheAndMaybeRender(msg.path, msg.files);
+        break;
+      case 'updateSize':
+      case 'updateDone':
+        handleSizeUpdate(msg);
+        break;
+      case 'error':
+        mdui.snackbar({ message: msg.message });
+        break;
+      default:
+        console.warn('Unknown worker message', msg);
     }
   }
 
-  /**
-   * Gère les erreurs de la connexion WebSocket.
-   * @param {Event} error
-   */
-  function handleWSError(error) {
-    console.error('WebSocket error:', error);
-    mdui.snackbar({message:'WebSocket connection failed. Please ensure the server is running.'});
-    document.getElementById('fileList').innerHTML = '<p>WebSocket connection failed. Please ensure the server is running.</p><mdui-button onclick="location.reload()" class="center-screen">Reload</mdui-button>';
+  function cacheAndMaybeRender(path, files) {
+    const norm = normalizePath(path);
+    directoryCache.set(norm, files.map(formatFileEntry));
+    // first directory seen becomes root
+    if (initialPath === '') {
+      initialPath = norm;
+      currentPath = norm;
+    }
+    if (currentPath === norm) {
+      renderList(directoryCache.get(norm));
+    }
   }
 
-  // Boutons d'analyse
-  document.querySelector('#analyzeButton').addEventListener('click', () => {
-    initFileExplorer(document.querySelector('#locationInput').value);
+  function handleSizeUpdate({ path, size, action }) {
+    const norm = normalizePath(path);
+    const parent = dirname(norm);
+    updateDirectoryCacheSize(parent, norm, size, action);
+    if (currentPath === parent) scheduleRender(parent);
+  }
+
+  function updateDirectoryCacheSize(parentDir, itemPath, size, action) {
+    if (!directoryCache.has(parentDir)) return;
+    const listing = directoryCache.get(parentDir);
+    const idx = listing.findIndex(x => x.path === itemPath);
+    if (idx < 0) return;
+    const it = listing[idx];
+    listing[idx] = {
+      ...it,
+      size,
+      sizeStr: formatSize(size),
+      updateDone: action === 'updateDone' || it.updateDone
+    };
+    directoryCache.set(parentDir, listing);
+  }
+
+  function scheduleRender(dirPath) {
+    clearTimeout(renderTimeout);
+    renderTimeout = setTimeout(() => {
+      renderList(directoryCache.get(dirPath) || []);
+    }, 100);
+  }
+
+  document.getElementById('sortByName').addEventListener('click', () => {
+    sortMethod = 'name';
+    renderList(directoryCache.get(currentPath));
   });
-  document.querySelector('#analyzeDiskButton').addEventListener('click', () => {
-    initFileExplorer("/");
+  document.getElementById('sortBySize').addEventListener('click', () => {
+    sortMethod = 'size';
+    renderList(directoryCache.get(currentPath));
   });
 
   /**
@@ -117,20 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
-   * Gère la réception d'une liste de fichiers/dossiers.
-   * @param {{ path: string, files: Array }} param0
-   */
-  function handleDirectoryListing({ path, files }) {
-    console.log(`Received ${files.length} files/directories for path: ${path}`);
-    const normalizedPath = normalizePath(path);
-    const filesWithFormattedSizes = files.map(formatFileEntry);
-    directoryCache.set(normalizedPath, filesWithFormattedSizes);
-    if (normalizePath(currentPath) === normalizedPath) {
-      renderList(filesWithFormattedSizes);
-    }
-  }
-
-  /**
    * Formate un objet fichier/dossier avec taille lisible.
    * @param {object} file
    * @returns {object}
@@ -141,64 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
       path: normalizePath(file.path),
       sizeStr: formatSize(file.size)
     };
-  }
-
-  /**
-   * Gère la mise à jour de la taille d'un fichier/dossier.
-   * @param {object} update
-   */
-  function handleSizeUpdate(update) {
-    const { path, size, action } = update;
-    const normalizedPath = normalizePath(path);
-    const parentDir = dirname(normalizedPath);
-
-    updateDirectoryCacheSize(parentDir, normalizedPath, size, action);
-
-    // Si la vue actuelle est le dossier parent, re-render
-    if (normalizePath(currentPath) === parentDir) {
-      scheduleRender(parentDir);
-    }
-  }
-
-  /**
-   * Met à jour la taille d'un élément dans le cache du dossier parent.
-   * @param {string} parentDir
-   * @param {string} normalizedPath
-   * @param {number} size
-   * @param {string} action
-   */
-  function updateDirectoryCacheSize(parentDir, normalizedPath, size, action) {
-    if (directoryCache.has(parentDir)) {
-      const dirListing = directoryCache.get(parentDir);
-      const itemIndex = dirListing.findIndex(item => normalizePath(item.path) === normalizedPath);
-      if (itemIndex >= 0) {
-        const updatedItem = {
-          ...dirListing[itemIndex],
-          size,
-          sizeStr: formatSize(size),
-          updateDone: (action === 'updateDone' || dirListing[itemIndex].updateDone)
-        };
-        dirListing[itemIndex] = updatedItem;
-        directoryCache.set(parentDir, dirListing);
-      }
-    }
-  }
-
-  /**
-   * Programme un rendu différé de la liste.
-   * @param {string} dirPath
-   */
-  function scheduleRender(dirPath) {
-    if (renderTimeout) {
-      clearTimeout(renderTimeout);
-    }
-    renderTimeout = setTimeout(() => {
-      if (directoryCache.has(normalizePath(currentPath))) {
-        const scrollPosition = fileListEl.scrollTop;
-        renderList(directoryCache.get(normalizePath(currentPath)));
-        fileListEl.scrollTop = scrollPosition;
-      }
-    }, 100);
   }
 
   /**
@@ -226,6 +222,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
+   * Trie les éléments selon la méthode choisie.
+   * @param {Array} items
+   * @param {string} method
+   * @returns {Array}
+   */
+  function sortItems(items, method) {
+    let sorted = [...items];
+    if (method === 'name') {
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      sorted.sort((a, b) => (b.size || 0) - (a.size || 0));
+    }
+    return sorted;
+  }
+
+  /**
    * Crée l'élément "Remonter d'un dossier".
    * @returns {HTMLElement}
    */
@@ -243,19 +255,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
-   * Trie les éléments selon la méthode choisie.
-   * @param {Array} items
-   * @param {string} method
-   * @returns {Array}
+   * Navigue vers un dossier donné.
+   * @param {string} dirPath
    */
-  function sortItems(items, method) {
-    let sorted = [...items];
-    if (method === 'name') {
-      sorted.sort((a, b) => a.name.localeCompare(b.name));
+  function navigateToDirectory(dirPath) {
+    const normalizedDirPath = normalizePath(dirPath);
+    currentPath = normalizedDirPath;
+    if (directoryCache.has(normalizedDirPath)) {
+      renderList(directoryCache.get(normalizedDirPath));
     } else {
-      sorted.sort((a, b) => (b.size || 0) - (a.size || 0));
+      ws.send(JSON.stringify({ action: 'getFiles', path: dirPath }));
     }
-    return sorted;
   }
 
   /**
@@ -274,9 +284,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressHTML = generateProgressHTML(item, proportion, isIndeterminate);
 
     if (item.isDirectory) {
-      li.innerHTML = `${getFileName(item.name)}<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg></mdui-icon>${progressHTML}<span slot="description">${formatSize(item.size)}</span>`;
+      li.innerHTML = `${getFileName(item.name)}<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg></mdui-icon>${progressHTML}<span slot="description">${isIndeterminate?"Calculating size...":`<b>${formatSize(item.size)}</b>`}</span>`;
     } else {
-      li.innerHTML = `${getFileName(item.name)}${getFileIcon(item.name)}${progressHTML}<span slot="description">${item.sizeStr || 'Unknown size'}</span>`;
+      li.innerHTML = `${getFileName(item.name)}${getFileIcon(item.name)}${progressHTML}<span slot="description"><b>${item.sizeStr || '</b>Unknown size<b>'}</b></span>`;
     }
 
     li.onclick = () => {
@@ -290,6 +300,45 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
+   * Calcule la proportion de la taille par rapport au parent.
+   * @param {object} item
+   * @param {number} parentTotalSize
+   * @returns {number}
+   */
+  function calculateProportion(item, parentTotalSize) {
+    if (parentTotalSize > 0 && (item.size || 0) > 0) {
+      return (item.size || 0) / parentTotalSize;
+    }
+    return 0;
+  }
+
+  /**
+   * Détermine si la barre de progression doit être indéterminée.
+   * @param {object} item
+   * @returns {boolean}
+   */
+  function getIndeterminateStatus(item) {
+    if (item.isDirectory) {
+      return !item.updateDone;
+    }
+    return false;
+  }
+
+  /**
+   * Génère le HTML de la barre de progression.
+   * @param {object} item
+   * @param {number} proportion
+   * @param {boolean} isIndeterminate
+   * @returns {string}
+   */
+  function generateProgressHTML(item, proportion, isIndeterminate) {
+    if (isIndeterminate) {
+      return '<mdui-linear-progress indeterminate></mdui-linear-progress>';
+    }
+    return `<mdui-linear-progress value="${proportion}"></mdui-linear-progress>`;
+  }
+
+    /**
    * Retourne l'icône appropriée pour un fichier.
    * @param {string} fileName
    * @returns {string}
@@ -359,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  /**
+   /**
    * Extrait le nom du fichier depuis un chemin.
    * @param {string} name
    * @returns {string}
@@ -368,70 +417,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return name.substring(name.lastIndexOf("\\") + 1);
   }
 
-  /**
-   * Calcule la proportion de la taille par rapport au parent.
-   * @param {object} item
-   * @param {number} parentTotalSize
-   * @returns {number}
-   */
-  function calculateProportion(item, parentTotalSize) {
-    if (parentTotalSize > 0 && (item.size || 0) > 0) {
-      return (item.size || 0) / parentTotalSize;
-    }
-    return 0;
-  }
 
-  /**
-   * Détermine si la barre de progression doit être indéterminée.
-   * @param {object} item
-   * @returns {boolean}
-   */
-  function getIndeterminateStatus(item) {
-    if (item.isDirectory) {
-      return !item.updateDone;
-    }
-    return false;
-  }
 
-  /**
-   * Génère le HTML de la barre de progression.
-   * @param {object} item
-   * @param {number} proportion
-   * @param {boolean} isIndeterminate
-   * @returns {string}
-   */
-  function generateProgressHTML(item, proportion, isIndeterminate) {
-    if (isIndeterminate) {
-      return '<mdui-linear-progress indeterminate></mdui-linear-progress>';
-    }
-    return `<mdui-linear-progress value="${proportion}"></mdui-linear-progress>`;
-  }
-
-  /**
-   * Navigue vers un dossier donné.
-   * @param {string} dirPath
-   */
-  function navigateToDirectory(dirPath) {
-    const normalizedDirPath = normalizePath(dirPath);
-    currentPath = normalizedDirPath;
-    if (directoryCache.has(normalizedDirPath)) {
-      renderList(directoryCache.get(normalizedDirPath));
-    } else {
-      ws.send(JSON.stringify({ action: 'getFiles', path: dirPath }));
-    }
-  }
-
-  // Gestion des boutons de tri
-  document.getElementById('sortByName').addEventListener('click', () => {
-    sortMethod = 'name';
-    if (directoryCache.has(normalizePath(currentPath))) {
-      renderList(directoryCache.get(normalizePath(currentPath)));
-    }
-  });
-  document.getElementById('sortBySize').addEventListener('click', () => {
-    sortMethod = 'size';
-    if (directoryCache.has(normalizePath(currentPath))) {
-      renderList(directoryCache.get(normalizePath(currentPath)));
-    }
-  });
+  // You can simply copy/paste your existing helper functions here:
+  // normalizePath, dirname, formatSize, formatFileEntry,
+  // renderList, createUpDirectoryItem, createListItem,
+  // calculateProportion, getIndeterminateStatus, generateProgressHTML,
+  // getFileIcon, getFileName.
 });
