@@ -15,7 +15,6 @@ self.onmessage = async e => {
     }
   }
 };
-
 // turn File objects into { path, name, isDirectory, size }
 function buildEntries(fileObjs) {
   const files = fileObjs.map(f => ({
@@ -42,7 +41,6 @@ function buildEntries(fileObjs) {
   }));
   return [...files, ...dirEntries];
 }
-
 // build a Map< directoryPath, Array<entry> >
 function buildDirectoryMap(entries) {
   const map = new Map();
@@ -55,7 +53,6 @@ function buildDirectoryMap(entries) {
   });
   return map;
 }
-
 // bottom-up directory size calculation
 async function computeSizes(tree) {
   // get all directories sorted by descending depth
@@ -65,7 +62,6 @@ async function computeSizes(tree) {
     dirs.push({ path: dir, depth: dir.split('/').length });
   }
   dirs.sort((a, b) => b.depth - a.depth);
-
   for (const { path } of dirs) {
     const children = tree.get(path) || [];
     let total = 0;
@@ -78,8 +74,7 @@ async function computeSizes(tree) {
     children.forEach(ch => {
       if (ch.path === path) ch.size = total;
     });
-    postMessage({ action:'updateSize', path, size: total });
-    postMessage({ action:'updateDone', path, size: total });
+    postMessage({ action: 'updateDone', path, size: total });
     // also update parent‐directory entry
     const parent = path.includes('/')
       ? path.slice(0, path.lastIndexOf('/'))
