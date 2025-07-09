@@ -10,6 +10,8 @@ self.onmessage = async e => {
       }
       // compute sizes bottom-up
       await computeSizes(tree);
+      // notify main thread that we're done
+      postMessage({ action: 'allDone' });
     } catch (err) {
       postMessage({ action:'error', message: err.message });
     }

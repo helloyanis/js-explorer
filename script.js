@@ -105,6 +105,12 @@ document.addEventListener('DOMContentLoaded', () => {
         mdui.snackbar({ message: msg.message });
         console.error(msg);
         break;
+      case 'allDone':
+        endTime = performance.now();
+        const duration = (endTime - startTime).toFixed(2);
+        console.log(`${Array.from(filePicker.files).length} items (${directoryCache.size} directories) scanned in ${duration} ms`);
+        mdui.snackbar({ message: `${Array.from(filePicker.files).length} items (${directoryCache.size} directories) scanned in ${duration} ms` });
+        break;
       default:
         console.warn('Unknown worker message', msg);
     }
