@@ -16,6 +16,10 @@
 #sizeFilter {
     width: 200px;
 }
+body.dragover {
+  border: 2px dashed #ccc;
+  background-color: rgba(0, 0, 0, 0.05);
+}
 .hidden {
     display: none !important;
 }

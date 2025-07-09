@@ -1,23 +1,71 @@
 // worker.js
+let directoryMap = null;
+let allFiles = [];
+let processingComplete = false;
+
 self.onmessage = async e => {
   if (e.data.action === 'init') {
-    try {
-      const entries = buildEntries(e.data.files);
-      const tree   = buildDirectoryMap(entries);
-      // send initial listings
-      for (const [dir, children] of tree) {
-        postMessage({ action:'files', path: dir, files: children });
-      }
-      // compute sizes bottom-up
-      await computeSizes(tree);
-      // notify main thread that we're done
+    directoryMap = buildDirectoryMap([]);
+    allFiles = [];
+    processingComplete = false;
+  } else if (e.data.action === 'addFiles') {
+    allFiles = allFiles.concat(e.data.files);
+    directoryMap = buildDirectoryMap(allFiles);
+
+    // Send all current directory listings
+    for (const [dir, children] of directoryMap) {
+      postMessage({ action:'files', path: dir, files: children });
+    }
+
+    // Compute sizes only when all files are added
+    if (e.data.isLastBatch) {
+      processingComplete = true;
+      await computeSizes(directoryMap);
       postMessage({ action: 'allDone' });
-    } catch (err) {
-      postMessage({ action:'error', message: err.message });
     }
   }
 };
-// turn File objects into { path, name, isDirectory, size }
+
+function buildDirectoryMap(entries) {
+  const map = new Map();
+  if (directoryMap) {
+    // Copy existing map
+    for (const [dir, children] of directoryMap) {
+      map.set(dir, [...children]);
+    }
+  }
+
+  // Add new entries
+  entries.forEach(ent => {
+    if (ent.webkitRelativePath) {
+
+   ent.path = ent.webkitRelativePath.replace(/\\/g, '/');
+
+ } else if (!ent.path && ent.name) {
+
+   // fallback for plain File: no directory info, so just use filename
+
+   ent.path = ent.name;
+
+ }
+
+ if (typeof ent.path !== 'string') return;
+
+    const parent = ent.path.includes('/')
+      ? ent.path.slice(0, ent.path.lastIndexOf('/'))
+      : '';
+    if (!map.has(parent)) map.set(parent, []);
+    // Check if this entry already exists in the map
+    const children = map.get(parent);
+    const exists = children.some(c => c.path === ent.path);
+    if (!exists) {
+      children.push(ent);
+    }
+  });
+
+  return map;
+}
+
 function buildEntries(fileObjs) {
   const files = fileObjs.map(f => ({
     path:       f.webkitRelativePath.replace(/\\/g,'/'),
@@ -43,19 +91,7 @@ function buildEntries(fileObjs) {
   }));
   return [...files, ...dirEntries];
 }
-// build a Map< directoryPath, Array<entry> >
-function buildDirectoryMap(entries) {
-  const map = new Map();
-  entries.forEach(ent => {
-    const parent = ent.path.includes('/')
-      ? ent.path.slice(0, ent.path.lastIndexOf('/'))
-      : '';
-    if (!map.has(parent)) map.set(parent, []);
-    map.get(parent).push(ent);
-  });
-  return map;
-}
-// bottom-up directory size calculation
+
 async function computeSizes(tree) {
   // get all directories sorted by descending depth
   const dirs = [];
@@ -88,5 +124,41 @@ async function computeSizes(tree) {
     }
     // give the browser a breather on huge trees
     await new Promise(r => setTimeout(r, 0));
+  }
+}
+
+// Function to traverse file tree
+function traverseFileTree(entry, callback, onComplete) {
+  if (entry.isFile) {
+    entry.file((file) => {
+      file.webkitRelativePath = entry.fullPath.substring(1); // Remove leading '/'
+      callback(file);
+      if (onComplete) onComplete();
+    }, (error) => {
+      console.error("Error reading file:", error);
+      if (onComplete) onComplete();
+    });
+  } else if (entry.isDirectory) {
+    const dirReader = entry.createReader();
+    dirReader.readEntries((entries) => {
+      let processedCount = 0;
+      if (entries.length === 0) {
+        if (onComplete) onComplete();
+        return;
+      }
+      entries.forEach((subEntry) => {
+        traverseFileTree(subEntry, callback, () => {
+          processedCount++;
+          if (processedCount === entries.length && onComplete) {
+            onComplete();
+          }
+        });
+      });
+    }, (error) => {
+      console.error("Error reading directory:", error);
+      if (onComplete) onComplete();
+    });
+  } else {
+    if (onComplete) onComplete();
   }
 }
