@@ -62,6 +62,7 @@ async function sendDirectoryListing(dirPath, ws) {
   }));
 
   for (const entry of listing) {
+    if (ws._cancelled) break;
     if (entry.isDirectory) {
       try {
         await calculateDirectorySize(entry.path, limit, ws);
@@ -73,6 +74,7 @@ async function sendDirectoryListing(dirPath, ws) {
 }
 
 async function calculateDirectorySize(dir, limit, ws) {
+  if (ws._cancelled) return 0;
   let total = 0;
 
   let dirents;
@@ -85,6 +87,7 @@ async function calculateDirectorySize(dir, limit, ws) {
   console.log(dirents.length, 'entries in directory:', dir);
 
   await Promise.all(dirents.map(dirent => limit(async () => {
+    if (ws._cancelled) return; // Check if WebSocket connection is still active
     const full = path.join(dir, dirent.name);
     console.log(`Calculating size for: ${full} (${dirent.isDirectory() ? 'directory' : 'file'})`);
 
@@ -111,7 +114,7 @@ async function calculateDirectorySize(dir, limit, ws) {
       }));
     } else {
       try {
-        const stat = await withTimeout(fs.stat(full), 3000);
+        const stat = await fs.stat(full)
         console.log(`File size for ${full}: ${stat.size} bytes`);
         total += stat.size;
 
@@ -133,28 +136,16 @@ async function calculateDirectorySize(dir, limit, ws) {
           size: stat.size
         }));
       } catch (e) {
-        console.error(`Error getting size for ${full}:`, e.message);
+        console.error(`Error getting size for ${full}:`, e);
       }
     }
   })));
 
-  // Update the directory's size in its parent's directory listing
-  const parentDir = path.dirname(dir);
-  if (directoryCache.has(parentDir)) {
-    const parentListing = directoryCache.get(parentDir);
-    const dirIndex = parentListing.findIndex(entry => entry.path === dir);
-    if (dirIndex >= 0) {
-      parentListing[dirIndex].size = total;
-      directoryCache.set(parentDir, parentListing);
-
-      // Notify client about the size update for this directory
-      ws.send(JSON.stringify({
-        action: 'updateSize',
+  ws.send(JSON.stringify({
+        action: 'updateDone',
         path: dir,
         size: total
       }));
-    }
-  }
 
   return total;
 }
