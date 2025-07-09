@@ -44,6 +44,117 @@ document.addEventListener('DOMContentLoaded', () => {
     mdui.snackbar({ message: 'File selection cancelled.' });
   });
 
+      // Add drag-and-drop event listeners
+  document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Optional: Add visual feedback
+    document.body.classList.add('dragover');
+  });
+  document.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Remove visual feedback
+    document.body.classList.remove('dragover');
+  });
+  document.addEventListener('drop', async e => {
+    e.preventDefault();
+    e.stopPropagation();
+    document.body.classList.remove('dragover');
+
+    const items = e.dataTransfer.items;
+    if (!items || items.length === 0) {
+      mdui.snackbar({ message: 'No files or directories dropped.' });
+      return resetUI();
+    }
+
+    // Show loading UI
+    locationSelectEl.classList.add('hidden');
+    sortControlsEl.classList.remove('hidden');
+    fileListEl.classList.remove('hidden');
+    fileListEl.innerHTML = '<mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
+    loadingMessage.classList.remove('hidden');
+
+    // 1) Traverse all entries and collect the File objects
+    const fileList = [];
+    let processed = 0;
+    const total = items.length;
+
+    await new Promise(resolve => {
+      for (let i = 0; i < total; i++) {
+        const entry = items[i].webkitGetAsEntry();
+        if (!entry) {
+          processed++;
+          if (processed === total) resolve();
+          continue;
+        }
+        traverseFileTree(entry,
+          file => fileList.push(file),
+          () => {
+            processed++;
+            if (processed === total) {
+              resolve();
+            }
+          }
+        );
+      }
+    });
+
+    if (fileList.length === 0) {
+      mdui.snackbar({ message: 'No valid files found in the drop.' });
+      return resetUI();
+    }
+
+    // 2) Kick off your normal scan logic
+    startLocalScan(fileList);
+  });
+
+
+  
+// Function to traverse file tree
+function traverseFileTree(entry, callback, onComplete) {
+  if (entry.isFile) {
+    entry.file((file) => {
+      file.webkitRelativePath = entry.fullPath.substring(1); // Remove leading '/'
+      callback(file);
+      if (onComplete) onComplete();
+    }, (error) => {
+      console.error("Error reading file:", error);
+      if (onComplete) onComplete();
+    });
+  } else if (entry.isDirectory) {
+    const dirReader = entry.createReader();
+    dirReader.readEntries((entries) => {
+      let processedCount = 0;
+      if (entries.length === 0) {
+        if (onComplete) onComplete();
+        return;
+      }
+      entries.forEach((subEntry) => {
+        traverseFileTree(subEntry, callback, () => {
+          processedCount++;
+          if (processedCount === entries.length && onComplete) {
+            onComplete();
+          }
+        });
+      });
+    }, (error) => {
+      console.error("Error reading directory:", error);
+      if (onComplete) onComplete();
+    });
+  } else {
+    if (onComplete) onComplete();
+  }
+}
+
+  function resetUI() {
+    // Reset UI to initial state
+    locationSelectEl.classList.remove('hidden');
+    sortControlsEl.classList.add('hidden');
+    fileListEl.classList.add('hidden');
+    fileListEl.innerHTML = '';
+    loadingMessage.classList.add('hidden');
+  }
   sizeFilterEl.addEventListener('input', () => {
     const value = parseFloat(sizeFilterEl.value);
     if (isNaN(value) || value < 0) {
