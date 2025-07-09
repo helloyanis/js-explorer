@@ -3,37 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Windows Explorer 2!</title>
+  <title>Windows Explorer 2 (Local-only)</title>
   <script src="mdui.global.js"></script>
   <link rel="stylesheet" href="styles/mdui.css">
   <link rel="stylesheet" href="styles/style.css">
 </head>
 <body>
   <div id="locationSelect">
-    <h1>Pick a folder location to analyze</h1>
-    <mdui-text-field id="locationInput" label="Folder location" placeholder="C:\Windows" helper="Paste here the folder location from your file explorer!" helper-on-focus></mdui-text-field>
-    <mdui-button id="analyzeButton">Analyze this folder</mdui-button>
-    <mdui-button id="analyzeDiskButton" variant="outlined">Analyze the entire disk (slow!)</mdui-button>
+    <h1>Pick a folder (or files) to analyze</h1>
+    <mdui-button id="scanButton" class="mdui-color-theme-accent mdui-ripple">
+      Select a folder
+    </mdui-button>
+    <input type="file"
+           id="filePicker"
+           webkitdirectory
+           multiple
+           class="hidden" />
   </div>
+
   <div id="sortControls" class="hidden">
+    <!-- same as before -->
     <mdui-dropdown>
-      <mdui-button slot="trigger">Filter</mdui-button>
+      <mdui-button slot="trigger" variant="outlined">Filter</mdui-button>
       <mdui-menu>
         <mdui-menu-item id="sortByName">By name</mdui-menu-item>
         <mdui-menu-item id="sortBySize">By size</mdui-menu-item>
       </mdui-menu>
-  </mdui-dropdown>
-      <mdui-dropdown>
-      <mdui-button slot="trigger">Display</mdui-button>
+    </mdui-dropdown>
+
+    <mdui-dropdown>
+      <mdui-button slot="trigger" variant="outlined">Display</mdui-button>
       <mdui-menu>
         <mdui-menu-item id="showFileTree">File tree</mdui-menu-item>
         <mdui-menu-item id="showAllFiles">All files (slow!)</mdui-menu-item>
       </mdui-menu>
-  </mdui-dropdown>
+    </mdui-dropdown>
+
+    <mdui-button id="resetButton" variant="outlined">
+      Scan elsewhere
+    </mdui-button>
   </div>
+
   <div id="fileList" class="hidden">
     <mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>
   </div>
+
   <script src="script.js"></script>
 </body>
 </html>

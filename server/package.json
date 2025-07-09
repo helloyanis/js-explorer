@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "ws": "^8.18.3"
-  },
-  "type": "module"
-}
