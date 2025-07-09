@@ -4,6 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentPath = '';
   let initialPath = '';
   let sortMethod = 'name';
+  let displayMode = 'tree';
+  let fileSizeFilter = 0; // in MB
   let renderTimeout = null;
   let worker = null;
   let startTime = 0;
@@ -16,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const scanButton       = document.getElementById('scanButton');
   const loadingMessage   = document.getElementById('loadingMessage');
   const resetButton      = document.getElementById('resetButton');
+  const sizeFilterEl    = document.getElementById('sizeFilter');
   scanButton.addEventListener('click', () => {
     filePicker.click();
   });
@@ -39,6 +42,20 @@ document.addEventListener('DOMContentLoaded', () => {
     scanButton.loading = false;
     loadingMessage.classList.add('hidden');
     mdui.snackbar({ message: 'File selection cancelled.' });
+  });
+
+  sizeFilterEl.addEventListener('input', () => {
+    const value = parseFloat(sizeFilterEl.value);
+    if (isNaN(value) || value < 0) {
+      fileSizeFilter = 0;
+    } else {
+      fileSizeFilter = value * 1024 * 1024; // convert to bytes
+    }
+    if (displayMode === 'all') {
+      renderAllFiles();
+    } else {
+      renderList(directoryCache.get(currentPath) || []);
+    }
   });
   resetButton.addEventListener('click', () => {
     // reset state
@@ -146,11 +163,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   document.getElementById('sortByName').addEventListener('click', () => {
     sortMethod = 'name';
-    renderList(directoryCache.get(currentPath));
+    if (displayMode === 'all') renderAllFiles();
+    else renderList(directoryCache.get(currentPath) || []);
   });
   document.getElementById('sortBySize').addEventListener('click', () => {
     sortMethod = 'size';
-    renderList(directoryCache.get(currentPath));
+    if (displayMode === 'all') renderAllFiles();
+    else renderList(directoryCache.get(currentPath) || []);
+  });
+
+  document.getElementById('showFileTree').addEventListener('click', () => {
+    displayMode = 'tree';
+    renderList(directoryCache.get(currentPath) || []);
+  });
+
+  document.getElementById('showAllFiles').addEventListener('click', () => {
+    displayMode = 'all';
+    renderAllFiles();
   });
   /**
    * Normalise un chemin de fichier.
@@ -206,6 +235,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const parentTotalSize = items.reduce((sum, item) => sum + (item.size || 0), 0);
     ul.appendChild(createUpDirectoryItem());
     sortItems(items, sortMethod).forEach(item =>
+      // only show files larger than the filter size
+      (fileSizeFilter <= 0 || (item.size || 0) >= fileSizeFilter) &&
       ul.appendChild(createListItem(item, parentTotalSize))
     );
     // preserve scroll
@@ -214,6 +245,39 @@ document.addEventListener('DOMContentLoaded', () => {
     fileListEl.appendChild(ul);
     fileListEl.scrollTop = scrollPosition;
   }
+
+  function renderAllFiles() {
+  // 1) collect every file entry
+  const allItems = [];
+  for (const files of directoryCache.values()) {
+    files.forEach(item => {
+      if (!item.isDirectory) {
+        allItems.push(item);
+      }
+    });
+  }
+
+  // 2) sort them
+  const sorted = sortItems(allItems, sortMethod);
+
+  // 3) render exactly like renderList()
+  const ul = document.createElement('mdui-list');
+  const totalSize = sorted.reduce((sum, f) => sum + (f.size || 0), 0);
+  sorted.forEach(item => {
+    // only show files larger than the filter size
+    if (fileSizeFilter > 0 && (item.size || 0) < fileSizeFilter) {
+      return;
+    }
+    ul.appendChild(createListItem(item, totalSize));
+  });
+
+  // 4) swap into the DOM
+  const scrollPosition = fileListEl.scrollTop;
+  fileListEl.innerHTML = '';
+  fileListEl.appendChild(ul);
+  fileListEl.scrollTop = scrollPosition;
+}
+
   /**
    * Trie les éléments selon la méthode choisie.
    * @param {Array} items
@@ -275,12 +339,13 @@ document.addEventListener('DOMContentLoaded', () => {
       li.innerHTML = `${getFileName(item.name)}<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg></mdui-icon>${progressHTML}<span slot="description">${isIndeterminate?"Calculating size...":`<b>${formatSize(item.size)}</b>`}</span>`;
     } else {
       li.innerHTML = `${getFileName(item.name)}${getFileIcon(item.name)}${progressHTML}<span slot="description"><b>${formatSize(item.size)}</b></span>`;
+      li.nonclickable = true;
     }
     li.onclick = () => {
       if (item.isDirectory) {
         navigateToDirectory(item.path);
       } else {
-        window.open("file:///" + item.path, '_blank');
+        //window.open("file:///" + item.path, '_blank');
       }
     };
     return li;
