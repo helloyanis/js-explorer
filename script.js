@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let worker = null;
   let startTime = 0;
   let endTime = 0;
+  let hasDroppedFiles = false;
+
   // UI elements
   const locationSelectEl = document.getElementById('locationSelect');
   const fileListEl       = document.getElementById('fileList');
@@ -27,13 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     scanButton.loading = false;
     loadingMessage.classList.add('hidden');
     startLocalScan(Array.from(filePicker.files));
-
-  } else {
-    scanButton.disabled = true;
-    scanButton.loading = true;
-    loadingMessage.classList.remove('hidden');
   }
-
   scanButton.addEventListener('click', () => {
     filePicker.click();
   });
@@ -41,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Navigation rail changed:', event.target.value);
     if(event.target.value === 'scan') {
       //Check for files to scan from picker or drag and drop
-      if (!filePicker.files.length) {
+      if (!filePicker.files.length && !hasDroppedFiles) {
         mdui.snackbar({ message: 'Please start a scan first!' });
         resetButton.click();
         return;
@@ -65,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
       mdui.snackbar({ message: 'Please pick at least one file or a directory! (If you selected system files, please retry your selection without them!)' });
       return;
     }
+    hasDroppedFiles = false; // reset drop state
     startLocalScan(Array.from(filePicker.files));
   });
   filePicker.addEventListener("click", (e) => {
@@ -107,8 +104,11 @@ document.addEventListener('DOMContentLoaded', () => {
     locationSelectEl.classList.add('hidden');
     sortControlsEl.classList.remove('hidden');
     fileListEl.classList.remove('hidden');
-    fileListEl.innerHTML = '<mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
+    fileListEl.innerHTML = 'Collecting all your files, please wait!<br><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
     loadingMessage.classList.remove('hidden');
+    navigationRail.value = 'scan';
+    hasDroppedFiles = true;
+
 
     // 1) Traverse all entries and collect the File objects
     const fileList = [];
@@ -139,7 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
       mdui.snackbar({ message: 'No valid files found in the drop.' });
       return resetUI();
     }
-
     // 2) Kick off your normal scan logic
     startLocalScan(fileList);
   });
@@ -223,7 +222,7 @@ function traverseFileTree(entry, callback, onComplete) {
     sortControlsEl.classList.remove('hidden');
     fileListEl.classList.remove('hidden');
     navigationRail.value = 'scan';
-    fileListEl.innerHTML = '<mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
+    fileListEl.innerHTML = 'Starting scan, please wait!<br><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
     // launch worker
     if (worker) worker.terminate();
     try{
