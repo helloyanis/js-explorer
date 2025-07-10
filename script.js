@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let startTime = 0;
   let endTime = 0;
   let hasDroppedFiles = false;
+  let totalFilesToScan = 0;
 
   // UI elements
   const locationSelectEl = document.getElementById('locationSelect');
@@ -23,6 +24,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const sizeFilterEl     = document.getElementById('sizeFilter');
   const navigationRail   = document.getElementById('navigationRail');
   const dropArea         = document.getElementById('dropArea');
+
+  // Displays an alert if the user is not on Firefox
+  if (navigator.userAgent.indexOf('Gecko/') === -1) {
+    if (localStorage.getItem('browserWarningShown') === 'true') return; // Don't show again if already shown
+    mdui.alert({
+      headline: 'Browser Compatibility Warning',
+      description: 'This application is optimized for Firefox. Please use Firefox for the best experience.',
+    });
+    localStorage.setItem('browserWarningShown', 'true');
+  }
 
   // Attempt to read the file selector (browser caches it across reloads)
   if (filePicker.files.length > 0) {
@@ -225,6 +236,7 @@ function traverseFileTree(entry, callback, onComplete) {
     directoryCache = new Map();
     currentPath = '';
     initialPath = '';
+    totalFilesToScan = fileList.length
     // Start measuring the scan time
     startTime = performance.now();
     // swap UI
@@ -275,8 +287,8 @@ function traverseFileTree(entry, callback, onComplete) {
       case 'allDone':
         endTime = performance.now();
         const duration = (endTime - startTime).toFixed(2);
-        console.log(`${Array.from(filePicker.files).length} items (${directoryCache.size} directories) scanned in ${duration/1000} seconds`);
-        mdui.snackbar({ message: `${Array.from(filePicker.files).length} items (${directoryCache.size} directories) scanned in ${duration/1000} seconds` });
+        console.log(`${totalFilesToScan} items (${directoryCache.size} directories) scanned in ${duration/1000} seconds`);
+        mdui.snackbar({ message: `${totalFilesToScan} items (${directoryCache.size} directories) scanned in ${duration/1000} seconds` });
         break;
       default:
         console.warn('Unknown worker message', msg);

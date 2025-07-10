@@ -43,7 +43,9 @@
   </div>
   <div id="sortControls" class="hidden">
     <mdui-dropdown>
-      <mdui-button slot="trigger" variant="outlined">Filter</mdui-button>
+      <mdui-button slot="trigger" variant="outlined">
+        <mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M440-160q-17 0-28.5-11.5T400-200v-240L168-736q-15-20-4.5-42t36.5-22h560q26 0 36.5 22t-4.5 42L560-440v240q0 17-11.5 28.5T520-160h-80Zm40-308 198-252H282l198 252Zm0 0Z"/></svg></mdui-icon>
+        Filter</mdui-button>
       <mdui-menu>
         <mdui-menu-item id="sortByName">By name</mdui-menu-item>
         <mdui-menu-item id="sortBySize">By size</mdui-menu-item>
@@ -51,7 +53,9 @@
     </mdui-dropdown>
 
     <mdui-dropdown>
-      <mdui-button slot="trigger" variant="outlined">Display</mdui-button>
+      <mdui-button slot="trigger" variant="outlined">
+        <mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v242q-18-14-38-23t-42-19v-200H447l-80-80H160v480h120v80H160ZM640-40q-91 0-168-48T360-220q35-84 112-132t168-48q91 0 168 48t112 132q-35 84-112 132T640-40Zm0-80q57 0 107.5-26t82.5-74q-32-48-82.5-74T640-320q-57 0-107.5 26T450-220q32 48 82.5 74T640-120Zm0-40q-25 0-42.5-17.5T580-220q0-25 17.5-42.5T640-280q25 0 42.5 17.5T700-220q0 25-17.5 42.5T640-160Zm-480-80v-480 277-37 240Z"/></svg></mdui-icon>
+        Display</mdui-button>
       <mdui-menu>
         <mdui-menu-item id="showFileTree">File tree</mdui-menu-item>
         <mdui-menu-item id="showAllFiles">All files (slow!)</mdui-menu-item>
