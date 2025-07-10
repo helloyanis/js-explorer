@@ -1,6 +1,10 @@
 *{
     font-family: system-ui
 }
+body {
+    margin: 0;
+    padding: 0;
+}
 .center-screen {
     position: absolute;
     top: 50%;
@@ -15,6 +19,22 @@
 }
 #sizeFilter {
     width: 200px;
+}
+#sortControls {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    flex-direction: row;
+    position: sticky;
+    top: 0;
+    background-color: rgb(var(--mdui-color-surface-container-high));
+    z-index: 1000;
+}
+#navigationRail {
+    background-color: rgb(var(--mdui-color-surface-container-low));
+}
+#sortControls:first-child {
+    margin-right: 10px;
 }
 .hidden {
     display: none !important;
