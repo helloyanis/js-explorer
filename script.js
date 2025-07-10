@@ -20,14 +20,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const scanButton       = document.getElementById('scanButton');
   const loadingMessage   = document.getElementById('loadingMessage');
   const resetButton      = document.getElementById('resetButton');
-  const sizeFilterEl    = document.getElementById('sizeFilter');
-  const navigationRail = document.getElementById('navigationRail');
+  const sizeFilterEl     = document.getElementById('sizeFilter');
+  const navigationRail   = document.getElementById('navigationRail');
+  const dropArea         = document.getElementById('dropArea');
 
   // Attempt to read the file selector (browser caches it across reloads)
   if (filePicker.files.length > 0) {
     scanButton.disabled = false;
     scanButton.loading = false;
     loadingMessage.classList.add('hidden');
+    dropArea.classList.remove('hidden');
     startLocalScan(Array.from(filePicker.files));
   }
   scanButton.addEventListener('click', () => {
@@ -58,8 +60,9 @@ document.addEventListener('DOMContentLoaded', () => {
     scanButton.disabled = false;
     scanButton.loading = false;
     loadingMessage.classList.add('hidden');
+    dropArea.classList.remove('hidden');
     if (!filePicker.files.length) {
-      mdui.snackbar({ message: 'Please pick at least one file or a directory! (If you selected system files, please retry your selection without them!)' });
+      mdui.snackbar({ message: 'Please pick at least one file or a directory! (If you selected system files, please retry by drag and dropping them into the window!!)' });
       return;
     }
     hasDroppedFiles = false; // reset drop state
@@ -69,11 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
     scanButton.disabled = true;
     scanButton.loading = true;
     loadingMessage.classList.remove('hidden');
+    dropArea.classList.add('hidden');
   });
   filePicker.addEventListener("cancel", (e) => {
     scanButton.disabled = false;
     scanButton.loading = false;
     loadingMessage.classList.add('hidden');
+    dropArea.classList.remove('hidden');
     mdui.snackbar({ message: 'File selection cancelled.' });
   });
 
@@ -107,6 +112,9 @@ document.addEventListener('DOMContentLoaded', () => {
     fileListEl.classList.remove('hidden');
     fileListEl.innerHTML = 'Collecting all your files, please wait!<br><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
     loadingMessage.classList.remove('hidden');
+    scanButton.disabled = true;
+    scanButton.loading = true;
+    dropArea.classList.add('hidden');
     navigationRail.value = 'scan';
     hasDroppedFiles = true;
 
@@ -189,6 +197,7 @@ function traverseFileTree(entry, callback, onComplete) {
     fileListEl.classList.add('hidden');
     fileListEl.innerHTML = '';
     loadingMessage.classList.add('hidden');
+    dropArea.classList.remove('hidden');
     scanButton.disabled = false;
     scanButton.loading = false;
     navigationRail.value = 'home'; // reset navigation rail
