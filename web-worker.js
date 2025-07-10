@@ -3,14 +3,19 @@ self.onmessage = async e => {
   if (e.data.action === 'init') {
     try {
       const entries = buildEntries(e.data.files);
-      const tree   = buildDirectoryMap(entries);
-      // send initial listings
+      const tree = buildDirectoryMap(entries);
+      // Send total count of entries (files + directories)
+      postMessage({ action: 'totalCount', count: entries.length });
+      // Send initial listings
       for (const [dir, children] of tree) {
         postMessage({ action:'files', path: dir, files: children });
       }
-      // compute sizes bottom-up
+      // Send updateDone messages for each file
+      entries.filter(ent => !ent.isDirectory).forEach(ent => {
+        postMessage({ action: 'updateDone', path: ent.path, size: ent.size });
+      });
+      // Compute sizes for directories
       await computeSizes(tree);
-      // notify main thread that we're done
       postMessage({ action: 'allDone' });
     } catch (err) {
       postMessage({ action:'error', message: err.message });
