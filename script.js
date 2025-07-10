@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let endTime = 0;
   let hasDroppedFiles = false;
   let totalFilesToScan = 0;
+  let filesScanned = 0;
 
   // UI elements
   const locationSelectEl = document.getElementById('locationSelect');
@@ -24,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const sizeFilterEl     = document.getElementById('sizeFilter');
   const navigationRail   = document.getElementById('navigationRail');
   const dropArea         = document.getElementById('dropArea');
+  const scanProgress     = document.getElementById('scanProgress');
 
   // Displays an alert if the user is not on Firefox
   if (navigator.userAgent.indexOf('Gecko/') === -1) {
@@ -127,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sortControlsEl.classList.remove('hidden');
     fileListEl.classList.remove('hidden');
     navigationRail.classList.add('hidden');
-    fileListEl.innerHTML = 'Collecting all your files, please wait!<br><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
+    fileListEl.innerHTML = '<h3>Collecting all your files, please wait!</h3><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
     loadingMessage.classList.remove('hidden');
     scanButton.disabled = true;
     scanButton.loading = true;
@@ -242,7 +244,8 @@ function traverseFileTree(entry, callback, onComplete) {
     directoryCache = new Map();
     currentPath = '';
     initialPath = '';
-    totalFilesToScan = fileList.length
+    totalFilesToScan = 0
+    filesScanned = 0;
     // Start measuring the scan time
     startTime = performance.now();
     // swap UI
@@ -251,7 +254,8 @@ function traverseFileTree(entry, callback, onComplete) {
     fileListEl.classList.remove('hidden');
     navigationRail.classList.remove('hidden');
     navigationRail.value = 'scan';
-    fileListEl.innerHTML = 'Starting scan, please wait!<br><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
+    fileListEl.innerHTML = '<h3>Starting scan, please wait!</h3><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
+    scanProgress.classList.remove('hidden');
     // launch worker
     if (worker) worker.terminate();
     try{
@@ -278,6 +282,9 @@ function traverseFileTree(entry, callback, onComplete) {
     const msg = ev.data;
     console.log('Worker message:', msg);
     switch (msg.action) {
+      case 'totalCount':
+        totalFilesToScan = msg.count;
+        break;
       case 'files':
         directoryCache.set(msg.path, msg.files);
         if (msg.path === currentPath) {
@@ -285,6 +292,7 @@ function traverseFileTree(entry, callback, onComplete) {
         }
         break;
       case 'updateDone':
+        filesScanned++;
         handleSizeUpdate(msg);
         break;
       case 'error':
@@ -296,11 +304,15 @@ function traverseFileTree(entry, callback, onComplete) {
         const duration = (endTime - startTime).toFixed(2);
         console.log(`${totalFilesToScan} items (${directoryCache.size} directories) scanned in ${duration/1000} seconds`);
         mdui.snackbar({ message: `${totalFilesToScan} items (${directoryCache.size} directories) scanned in ${duration/1000} seconds` });
+        scanProgress.classList.add('hidden');
+        scanProgress.removeAttribute('value');
         break;
       default:
         console.warn('Unknown worker message', msg);
+
     }
   }
+
   function requestDirectory(path) {
     worker.postMessage({ action: 'getFiles', path });
   }
@@ -324,6 +336,10 @@ function traverseFileTree(entry, callback, onComplete) {
         updateDone: true
       };
       directoryCache.set(norm, listing);
+    }
+    // Update progress bar only if totalFilesToScan is set
+    if (totalFilesToScan > 0) {
+      scanProgress.value = filesScanned / totalFilesToScan;
     }
   }
 
