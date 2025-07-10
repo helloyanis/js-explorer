@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
       locationSelectEl.classList.add('hidden');
       sortControlsEl.classList.remove('hidden');
       fileListEl.classList.remove('hidden');
+      if(!directoryCache.size) return
     if (displayMode === 'all') {
       renderAllFiles();
     } else {
