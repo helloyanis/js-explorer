@@ -477,7 +477,13 @@ function traverseFileTree(entry, callback, onComplete) {
     fileListEl.innerHTML = '';
     fileListEl.appendChild(ul);
     fileListEl.scrollTop = scrollPosition;
-  }
+    if(localStorage.getItem('navigateTip') === 'true') return;
+    mdui.alert({
+      headline: 'Start Navigating!',
+      description: 'You can now navigate through the directories while their size is being calculated, by clicking on them. Use the "Up one directory" button to go back. The loading bar near the top of the screen shows the total progress of the size calculation.',
+  });
+    localStorage.setItem('navigateTip', 'true');
+}
 
   function renderAllFiles() {
   // 1) collect every file entry

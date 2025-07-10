@@ -25,6 +25,7 @@
   <div id="locationSelect">
     <h1>Windows Explorer 2</h1>
     <h2>Pick a folder to analyze, or drop folders on this page!</h2>
+    <h3> No data is sent to anyone, it all happens just on your device!</h3>
     <mdui-button id="scanButton" class="mdui-color-theme-accent mdui-ripple">
       Select a folder
     </mdui-button>
@@ -62,7 +63,7 @@
       </mdui-menu>
     </mdui-dropdown>
 
-    <mdui-text-field id="sizeFilter" label="Only show files over..." type="number" suffix="Mb"></mdui-text-field>
+    <mdui-text-field id="sizeFilter" step="any" label="Only show files over..." type="number" suffix="Mb"></mdui-text-field>
   </div>
 
     <mdui-linear-progress id="scanProgress" class="hidden"></mdui-linear-progress>
