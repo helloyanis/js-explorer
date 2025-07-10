@@ -1,4 +1,4 @@
-// worker.js
+// web-worker.js
 self.onmessage = async e => {
   if (e.data.action === 'init') {
     try {
@@ -55,38 +55,52 @@ function buildDirectoryMap(entries) {
   });
   return map;
 }
-// bottom-up directory size calculation
+// topological (Kahn) directory size calculation, so each dir
+// is reported as soon as its own children are ready
 async function computeSizes(tree) {
-  // get all directories sorted by descending depth
-  const dirs = [];
+  // 1) Count direct-subdirectory children for each directory
+  const pending = new Map();
   for (const [dir, children] of tree) {
-    if (dir === '') continue; // skip "root-listing" here
-    dirs.push({ path: dir, depth: dir.split('/').length });
+    // how many of its children are directories?
+    const subdirs = children.filter(ch => ch.isDirectory).length;
+    pending.set(dir, subdirs);
   }
-  dirs.sort((a, b) => b.depth - a.depth);
-  for (const { path } of dirs) {
+
+  // 2) Seed queue with all “leaf” directories (no subdirs)
+  const queue = [];
+  for (const [dir, count] of pending) {
+    if (count === 0) queue.push(dir);
+  }
+
+  // 3) Process until every directory has been sized
+  while (queue.length) {
+    const path = queue.shift();
     const children = tree.get(path) || [];
-    let total = 0;
-    for (const ch of children) {
-      // files carry correct size;
-      // directories have been updated in previous iterations
-      total += ch.size || 0;
-    }
-    // update in both our tree and notify main thread
-    children.forEach(ch => {
-      if (ch.path === path) ch.size = total;
-    });
+    // sum up sizes (files already have size; subdirs have been filled in when they themselves
+    // were processed earlier)
+    const total = children.reduce((sum, ch) => sum + (ch.size || 0), 0);
+
+    // notify the main thread right away
     postMessage({ action: 'updateDone', path, size: total });
-    // also update parent‐directory entry
+
+    // update the tree so that its parent sees this new size
     const parent = path.includes('/')
       ? path.slice(0, path.lastIndexOf('/'))
       : '';
     if (tree.has(parent)) {
-      const arr = tree.get(parent);
-      const idx = arr.findIndex(x => x.path === path);
-      if (idx >= 0) arr[idx].size = total;
+      const siblings = tree.get(parent);
+      const idx = siblings.findIndex(x => x.path === path);
+      if (idx >= 0) siblings[idx].size = total;
     }
-    // give the browser a breather on huge trees
+
+    // decrement the “waiting” count on its parent; if that hits zero, enqueue
+    if (pending.has(parent)) {
+      const left = pending.get(parent) - 1;
+      pending.set(parent, left);
+      if (left === 0) queue.push(parent);
+    }
+
+    // let the browser breathe on large trees
     await new Promise(r => setTimeout(r, 0));
   }
 }

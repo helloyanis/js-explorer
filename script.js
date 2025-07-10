@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let worker = null;
   let startTime = 0;
   let endTime = 0;
+  let hasDroppedFiles = false;
+
   // UI elements
   const locationSelectEl = document.getElementById('locationSelect');
   const fileListEl       = document.getElementById('fileList');
@@ -19,8 +21,37 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadingMessage   = document.getElementById('loadingMessage');
   const resetButton      = document.getElementById('resetButton');
   const sizeFilterEl    = document.getElementById('sizeFilter');
+  const navigationRail = document.getElementById('navigationRail');
+
+  // Attempt to read the file selector (browser caches it across reloads)
+  if (filePicker.files.length > 0) {
+    scanButton.disabled = false;
+    scanButton.loading = false;
+    loadingMessage.classList.add('hidden');
+    startLocalScan(Array.from(filePicker.files));
+  }
   scanButton.addEventListener('click', () => {
     filePicker.click();
+  });
+  navigationRail.addEventListener('change', (event) => {
+    console.log('Navigation rail changed:', event.target.value);
+    if(event.target.value === 'scan') {
+      //Check for files to scan from picker or drag and drop
+      if (!filePicker.files.length && !hasDroppedFiles) {
+        mdui.snackbar({ message: 'Please start a scan first!' });
+        resetButton.click();
+        return;
+      }
+      // Swap UI to show scan results
+      locationSelectEl.classList.add('hidden');
+      sortControlsEl.classList.remove('hidden');
+      fileListEl.classList.remove('hidden');
+    if (displayMode === 'all') {
+      renderAllFiles();
+    } else {
+      renderList(directoryCache.get(currentPath) || []);
+    }
+    }
   });
   filePicker.addEventListener('change', () => {
     scanButton.disabled = false;
@@ -30,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
       mdui.snackbar({ message: 'Please pick at least one file or a directory! (If you selected system files, please retry your selection without them!)' });
       return;
     }
+    hasDroppedFiles = false; // reset drop state
     startLocalScan(Array.from(filePicker.files));
   });
   filePicker.addEventListener("click", (e) => {
@@ -72,8 +104,11 @@ document.addEventListener('DOMContentLoaded', () => {
     locationSelectEl.classList.add('hidden');
     sortControlsEl.classList.remove('hidden');
     fileListEl.classList.remove('hidden');
-    fileListEl.innerHTML = '<mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
+    fileListEl.innerHTML = 'Collecting all your files, please wait!<br><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
     loadingMessage.classList.remove('hidden');
+    navigationRail.value = 'scan';
+    hasDroppedFiles = true;
+
 
     // 1) Traverse all entries and collect the File objects
     const fileList = [];
@@ -104,7 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
       mdui.snackbar({ message: 'No valid files found in the drop.' });
       return resetUI();
     }
-
     // 2) Kick off your normal scan logic
     startLocalScan(fileList);
   });
@@ -154,6 +188,9 @@ function traverseFileTree(entry, callback, onComplete) {
     fileListEl.classList.add('hidden');
     fileListEl.innerHTML = '';
     loadingMessage.classList.add('hidden');
+    scanButton.disabled = false;
+    scanButton.loading = false;
+    navigationRail.value = 'home'; // reset navigation rail
   }
   sizeFilterEl.addEventListener('input', () => {
     const value = parseFloat(sizeFilterEl.value);
@@ -170,31 +207,22 @@ function traverseFileTree(entry, callback, onComplete) {
   });
   resetButton.addEventListener('click', () => {
     // reset state
-    directoryCache.clear();
-    currentPath = '';
-    initialPath = '';
-    locationSelectEl.classList.remove('hidden');
-    sortControlsEl.classList.add('hidden');
-    fileListEl.classList.add('hidden');
-    fileListEl.innerHTML = '';
-    if (worker) {
-      worker.terminate();
-      worker = null;
-    }
-    filePicker.value = ''; // reset file input
-    scanButton.disabled = false;
-    scanButton.loading = false;
-    mdui.snackbar({ message: 'Ready for a new scan!' });
+    resetUI();
   });
   // Kick things off
   function startLocalScan(fileList) {
+    // Reset state
+    directoryCache = new Map();
+    currentPath = '';
+    initialPath = '';
     // Start measuring the scan time
     startTime = performance.now();
     // swap UI
     locationSelectEl.classList.add('hidden');
     sortControlsEl.classList.remove('hidden');
     fileListEl.classList.remove('hidden');
-    fileListEl.innerHTML = '<mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
+    navigationRail.value = 'scan';
+    fileListEl.innerHTML = 'Starting scan, please wait!<br><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
     // launch worker
     if (worker) worker.terminate();
     try{
@@ -219,6 +247,7 @@ function traverseFileTree(entry, callback, onComplete) {
   }
   function handleWorkerMessage(ev) {
     const msg = ev.data;
+    console.log('Worker message:', msg);
     switch (msg.action) {
       case 'files':
         directoryCache.set(msg.path, msg.files);
@@ -236,8 +265,8 @@ function traverseFileTree(entry, callback, onComplete) {
       case 'allDone':
         endTime = performance.now();
         const duration = (endTime - startTime).toFixed(2);
-        console.log(`${Array.from(filePicker.files).length} items (${directoryCache.size} directories) scanned in ${duration} ms`);
-        mdui.snackbar({ message: `${Array.from(filePicker.files).length} items (${directoryCache.size} directories) scanned in ${duration} ms` });
+        console.log(`${Array.from(filePicker.files).length} items (${directoryCache.size} directories) scanned in ${duration/1000} seconds`);
+        mdui.snackbar({ message: `${Array.from(filePicker.files).length} items (${directoryCache.size} directories) scanned in ${duration/1000} seconds` });
         break;
       default:
         console.warn('Unknown worker message', msg);
@@ -247,11 +276,59 @@ function traverseFileTree(entry, callback, onComplete) {
     worker.postMessage({ action: 'getFiles', path });
   }
   function handleSizeUpdate({ path, size, action }) {
-    const norm = normalizePath(path);
-    const parent = dirname(norm);
-    updateDirectoryCacheSize(parent, norm, size, action);
-    if (currentPath === parent) scheduleRender(parent);
+  const norm = normalizePath(path);
+  const parent = dirname(norm);
+
+  // Update the directory cache with the new size information
+  updateDirectoryCacheSize(parent, norm, size, action);
+
+  // Also update the directory's own entry if it exists in the cache
+  if (directoryCache.has(norm)) {
+    const listing = directoryCache.get(norm);
+    const idx = listing.findIndex(x => x.path === norm);
+    if (idx >= 0) {
+      const it = listing[idx];
+      listing[idx] = {
+        ...it,
+        size,
+        sizeStr: formatSize(size),
+        updateDone: true
+      };
+      directoryCache.set(norm, listing);
+    }
   }
+
+  // Determine if we need to re-render
+  let shouldRender = false;
+
+  // If we're in 'all' mode, always re-render
+  if (displayMode === 'all') {
+    shouldRender = true;
+  }
+  // If the updated directory is the current directory, re-render
+  else if (currentPath === norm) {
+    shouldRender = true;
+  }
+  // If the parent of the updated directory is the current directory, re-render
+  else if (currentPath === parent) {
+    shouldRender = true;
+  }
+  // If the current directory is an ancestor of the updated directory, re-render
+  else if (norm.startsWith(currentPath + '/')) {
+    shouldRender = true;
+  }
+
+  if (shouldRender) {
+    if (displayMode === 'all') {
+      renderAllFiles();
+    } else {
+      clearTimeout(renderTimeout);
+      renderTimeout = setTimeout(() => {
+        renderList(directoryCache.get(currentPath) || []);
+      }, 100);
+    }
+  }
+}
   function updateDirectoryCacheSize(parentDir, itemPath, size, action) {
     if (!directoryCache.has(parentDir)) return;
     const listing = directoryCache.get(parentDir);

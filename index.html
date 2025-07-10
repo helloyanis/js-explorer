@@ -10,6 +10,18 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
 </head>
 <body>
+    <mdui-navigation-rail value="home" id="navigationRail">
+    <mdui-navigation-rail-item id="resetButton" value="home">
+      Home
+    <mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M240-200h120v-240h240v240h120v-360L480-740 240-560v360Zm-80 80v-480l320-240 320 240v480H520v-240h-80v240H160Zm320-350Z"/></svg></mdui-icon>
+    <mdui-icon slot="active-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-120v-480l320-240 320 240v480H560v-280H400v280H160Z"/></svg></mdui-icon>
+    </mdui-navigation-rail-item>
+    <mdui-navigation-rail-item id="scanResults" value="scan">
+      My scan
+      <mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-240v-480 188-28 320Zm268 80H160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v165q-17-18-37-32t-43-25v-108H447l-80-80H160v480h243q3 21 9.5 41t15.5 39Zm252-320q83 0 141.5 58.5T880-280q0 83-58.5 141.5T680-80q-83 0-141.5-58.5T480-280q0-83 58.5-141.5T680-480Zm-20 320h40v-160h-40v160Zm20-200q8 0 14-6t6-14q0-8-6-14t-14-6q-8 0-14 6t-6 14q0 8 6 14t14 6Z"/></svg></mdui-icon>
+      <mdui-icon slot="active-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v165q-40-42-92-63.5T679-560q-116 0-197.5 81.5T400-281q0 32 7 62t21 59H160Zm520 80q-83 0-141.5-58.5T480-280q0-83 58.5-141.5T680-480q83 0 141.5 58.5T880-280q0 83-58.5 141.5T680-80Zm-20-80h40v-160h-40v160Zm20-200q8 0 14-6t6-14q0-8-6-14t-14-6q-8 0-14 6t-6 14q0 8 6 14t14 6Z"/></svg></mdui-icon>
+    </mdui-navigation-rail-item>
+  </mdui-navigation-rail>
   <div id="locationSelect">
     <h1>Windows Explorer 2</h1>
     <h2>Pick a folder to analyze</h2>
@@ -24,7 +36,7 @@
     <h3 id="loadingMessage" class="hidden">Now loading. Please wait! Folders containing many files can take a few minutes.</h3>
 
   </div>
-  <mdui-top-app-bar id="sortControls" class="hidden">
+  <div id="sortControls" class="hidden">
     <mdui-dropdown>
       <mdui-button slot="trigger" variant="outlined">Filter</mdui-button>
       <mdui-menu>
@@ -42,11 +54,7 @@
     </mdui-dropdown>
 
     <mdui-text-field id="sizeFilter" label="Only show files over..." type="number" suffix="Mb"></mdui-text-field>
-
-    <mdui-button id="resetButton" variant="outlined">
-      Scan elsewhere
-    </mdui-button>
-  </mdui-top-app-bar>
+  </div>
 
   <div id="fileList" class="hidden">
     <mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>
