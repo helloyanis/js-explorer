@@ -45,6 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   scanButton.addEventListener('click', () => {
     filePicker.click();
+    navigationRail.querySelectorAll('mdui-navigation-rail-item').forEach(item => {
+      item.disabled = true
+    });
   });
   navigationRail.addEventListener('change', (event) => {
     console.log('Navigation rail changed:', event.target.value);
@@ -84,12 +87,14 @@ document.addEventListener('DOMContentLoaded', () => {
     scanButton.loading = true;
     loadingMessage.classList.remove('hidden');
     dropArea.classList.add('hidden');
+    navigationRail.classList.add('hidden');
   });
   filePicker.addEventListener("cancel", (e) => {
     scanButton.disabled = false;
     scanButton.loading = false;
     loadingMessage.classList.add('hidden');
     dropArea.classList.remove('hidden');
+    navigationRail.classList.remove('hidden');
     mdui.snackbar({ message: 'File selection cancelled.' });
   });
 
@@ -121,6 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
     locationSelectEl.classList.add('hidden');
     sortControlsEl.classList.remove('hidden');
     fileListEl.classList.remove('hidden');
+    navigationRail.classList.add('hidden');
     fileListEl.innerHTML = 'Collecting all your files, please wait!<br><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
     loadingMessage.classList.remove('hidden');
     scanButton.disabled = true;
@@ -243,6 +249,7 @@ function traverseFileTree(entry, callback, onComplete) {
     locationSelectEl.classList.add('hidden');
     sortControlsEl.classList.remove('hidden');
     fileListEl.classList.remove('hidden');
+    navigationRail.classList.remove('hidden');
     navigationRail.value = 'scan';
     fileListEl.innerHTML = 'Starting scan, please wait!<br><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
     // launch worker
