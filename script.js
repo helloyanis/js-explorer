@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let hasDroppedFiles = false;
   let totalFilesToScan = 0;
   let filesScanned = 0;
+  let automaticNavChange = false;
 
   // UI elements
   const locationSelectEl = document.getElementById('locationSelect');
@@ -23,18 +24,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadingMessage   = document.getElementById('loadingMessage');
   const resetButton      = document.getElementById('resetButton');
   const sizeFilterEl     = document.getElementById('sizeFilter');
+  const scanResultsEl    = document.getElementById('scanResults');
   const navigationRail   = document.getElementById('navigationRail');
   const dropArea         = document.getElementById('dropArea');
   const scanProgress     = document.getElementById('scanProgress');
 
   // Displays an alert if the user is not on Firefox
   if (navigator.userAgent.indexOf('Gecko/') === -1) {
-    if (localStorage.getItem('browserWarningShown') === 'true') return; // Don't show again if already shown
+    if (sessionStorage.getItem('browserWarningShown') === 'true') return; // Don't show again if already shown
     mdui.alert({
       headline: 'Browser Compatibility Warning',
       description: 'This application is optimized for Firefox. Please use Firefox for the best experience.',
     });
-    localStorage.setItem('browserWarningShown', 'true');
+    sessionStorage.setItem('browserWarningShown', 'true');
   }
 
   // Attempt to read the file selector (browser caches it across reloads)
@@ -47,11 +49,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   scanButton.addEventListener('click', () => {
     filePicker.click();
-    navigationRail.querySelectorAll('mdui-navigation-rail-item').forEach(item => {
-      item.disabled = true
-    });
   });
   navigationRail.addEventListener('change', (event) => {
+    if(navigationRail.disabled && !automaticNavChange) {
+      mdui.snackbar({ message: 'Please wait for the scan to finish!' });
+      // Revert to previous value
+      automaticNavChange = true; // Allow navigation rail change
+      navigationRail.value=='home' ? scanResultsEl.click() : resetButton.click();
+      return;
+    }
+    automaticNavChange = false; // Reset flag
     console.log('Navigation rail changed:', event.target.value);
     if(event.target.value === 'scan') {
       //Check for files to scan from picker or drag and drop
@@ -70,6 +77,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       renderList(directoryCache.get(currentPath) || []);
     }
+    } else if (event.target.value === 'home') {
+      // Reset UI to initial state
+      resetUI();
     }
   });
   filePicker.addEventListener('change', () => {
@@ -89,14 +99,14 @@ document.addEventListener('DOMContentLoaded', () => {
     scanButton.loading = true;
     loadingMessage.classList.remove('hidden');
     dropArea.classList.add('hidden');
-    navigationRail.classList.add('hidden');
+    navigationRail.disabled = true;
   });
   filePicker.addEventListener("cancel", (e) => {
     scanButton.disabled = false;
     scanButton.loading = false;
     loadingMessage.classList.add('hidden');
     dropArea.classList.remove('hidden');
-    navigationRail.classList.remove('hidden');
+    navigationRail.disabled = false;
     mdui.snackbar({ message: 'File selection cancelled.' });
   });
 
@@ -128,12 +138,13 @@ document.addEventListener('DOMContentLoaded', () => {
     locationSelectEl.classList.add('hidden');
     sortControlsEl.classList.remove('hidden');
     fileListEl.classList.remove('hidden');
-    navigationRail.classList.add('hidden');
-    fileListEl.innerHTML = '<h3>Collecting all your files, please wait!</h3><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
+    navigationRail.disabled = true;
+    fileListEl.innerHTML = '<h3 class="loading-message-2">Collecting all your files, please wait!</h3><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
     loadingMessage.classList.remove('hidden');
     scanButton.disabled = true;
     scanButton.loading = true;
     dropArea.classList.add('hidden');
+    automaticNavChange = true; // Allow navigation rail change
     navigationRail.value = 'scan';
     hasDroppedFiles = true;
 
@@ -234,10 +245,6 @@ function traverseFileTree(entry, callback, onComplete) {
       renderList(directoryCache.get(currentPath) || []);
     }
   });
-  resetButton.addEventListener('click', () => {
-    // reset state
-    resetUI();
-  });
   // Kick things off
   function startLocalScan(fileList) {
     // Reset state
@@ -252,9 +259,10 @@ function traverseFileTree(entry, callback, onComplete) {
     locationSelectEl.classList.add('hidden');
     sortControlsEl.classList.remove('hidden');
     fileListEl.classList.remove('hidden');
-    navigationRail.classList.remove('hidden');
+    navigationRail.disabled = true;
+    automaticNavChange = true; // Allow navigation rail change
     navigationRail.value = 'scan';
-    fileListEl.innerHTML = '<h3>Starting scan, please wait!</h3><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
+    fileListEl.innerHTML = '<h3 class="loading-message-2">Starting scan, please wait!</h3><mdui-circular-progress indeterminate class="center-screen"></mdui-circular-progress>';
     scanProgress.classList.remove('hidden');
     // launch worker
     if (worker) worker.terminate();
@@ -477,12 +485,12 @@ function traverseFileTree(entry, callback, onComplete) {
     fileListEl.innerHTML = '';
     fileListEl.appendChild(ul);
     fileListEl.scrollTop = scrollPosition;
-    if(localStorage.getItem('navigateTip') === 'true') return;
+    if(sessionStorage.getItem('navigateTip') === 'true') return;
     mdui.alert({
       headline: 'Start Navigating!',
       description: 'You can now navigate through the directories while their size is being calculated, by clicking on them. Use the "Up one directory" button to go back. The loading bar near the top of the screen shows the total progress of the size calculation.',
   });
-    localStorage.setItem('navigateTip', 'true');
+    sessionStorage.setItem('navigateTip', 'true');
 }
 
   function renderAllFiles() {
