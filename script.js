@@ -666,6 +666,8 @@ function traverseFileTree(entry, callback, onComplete) {
       case 'wav':
       case 'flac':
       case 'ogg':
+      case 'mid':
+      case 'm4a':
         return '<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M400-120q-66 0-113-47t-47-113q0-66 47-113t113-47q23 0 42.5 5.5T480-418v-422h240v160H560v400q0 66-47 113t-113 47Z"/></svg></mdui-icon>';
       case 'mp4':
       case 'avi':
