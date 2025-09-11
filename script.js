@@ -33,12 +33,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Displays an alert if the user is not on Firefox
   if (navigator.userAgent.indexOf('Gecko/') === -1) {
-    if (sessionStorage.getItem('browserWarningShown') === 'true') return; // Don't show again if already shown
-    mdui.alert({
-      headline: 'Browser Compatibility Warning',
-      description: 'This application is optimized for Firefox. Please use Firefox for the best experience.',
-    });
-    sessionStorage.setItem('browserWarningShown', 'true');
+      if (sessionStorage.getItem('browserWarningShown') !== 'true'){ // Don't show again if already shown
+      mdui.alert({
+        headline: 'Browser Compatibility Warning',
+        description: 'This application is optimized for Firefox. Please use Firefox for the best experience.',
+      });
+      sessionStorage.setItem('browserWarningShown', 'true');
+    }
   }
 
   // Attempt to read the file selector (browser caches it across reloads)
