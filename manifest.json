@@ -1,0 +1,15 @@
+{
+  "short_name": "JS Explorer",
+  "name": "JavaScript file explorer",
+  "description": "Explore and check the size of your local files and folders directly in the browser.",
+  "theme_color": "#EAC452",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone"
+}
