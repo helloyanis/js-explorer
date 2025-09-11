@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const navigationRail   = document.getElementById('navigationRail');
   const dropArea         = document.getElementById('dropArea');
   const scanProgress     = document.getElementById('scanProgress');
+  const filePreviewDialog = document.getElementById('filePreviewDialog');
 
   mdui.setColorScheme('#EAC452');
 
@@ -590,11 +591,12 @@ function traverseFileTree(entry, callback, onComplete) {
     } else {
       li.innerHTML = `${getFileName(item.name)}${getFileIcon(item.name)}${progressHTML}<span slot="description"><b>${formatSize(item.size)}</b></span>`;
     }
-    li.onclick = () => {
+    li.onclick = async () => {
       if (item.isDirectory) {
         navigateToDirectory(item.path);
       } else {
-        const file = getFileFromPath(item.path)
+        const file = await getFileFromPath(item.path);
+        console.log('Opening file:', file);
         if (!file){
           return mdui.snackbar({ message: 'Failed to open file. 😔' });
         }
@@ -721,31 +723,111 @@ function traverseFileTree(entry, callback, onComplete) {
   function getFileName(name) {
     return name.substring(name.lastIndexOf("\\") + 1);
   }
-});
 
-
-function getFileFromPath(path){
-  return Array.from(filePicker.files).find(f => f.webkitRelativePath === path) || null;
+  // Function to get the File object from the path
+function getFileFromPath(path) {
+  // Since we don't have direct access to the File objects in the cache,
+  // we need to ask the worker to find it for us.
+  return new Promise((resolve, reject) => {
+    if (!worker) return reject('Worker not initialized');
+    const listener = (ev) => {
+      if (ev.data.action === 'fileResult' && ev.data.path === path) {
+        worker.removeEventListener('message', listener);
+        resolve(ev.data.file || null);
+      }
+    };
+    worker.addEventListener('message', listener);
+    worker.postMessage({ action: 'getFileByPath', path });
+  });
 }
 
 function openFilePreview(file){
+  const dialogTitle = file.name.length > 30 ? file.name.slice(0, 15) + '...' + file.name.slice(-15) : file.name;
+  const dialogTitleEl = document.createElement('h3');
+  dialogTitleEl.textContent = dialogTitle;
+  dialogTitleEl.style.textAlign = 'center';
+  dialogTitleEl.style.marginBottom = '10px';
+
+  const closeDialogButton = document.createElement('mdui-button');
+  closeDialogButton.textContent = 'Close';
+  closeDialogButton.variant = 'text';
+  closeDialogButton.style.display = 'block';
+  closeDialogButton.style.margin = '10px auto 0 auto';
+  closeDialogButton.onclick = () => {
+    filePreviewDialog.removeAttribute('open');
+  };
+  filePreviewDialog.innerHTML = '';
+
+
+  // Handle different file types
   if (file.type.startsWith("image")){
     const reader = new FileReader();
     reader.onload = () => {
       console.log(reader.result);
+      const imageEl = document.createElement('img');
+      imageEl.src = reader.result;
+      imageEl.style.maxWidth = '100%';
+      imageEl.style.maxHeight = '100%';
+
+      filePreviewDialog.appendChild(dialogTitleEl);
+      filePreviewDialog.appendChild(imageEl);
+      filePreviewDialog.appendChild(closeDialogButton);
+      filePreviewDialog.setAttribute('open', '');
     };
     reader.readAsDataURL(file);
   }
   else if (file.type.startsWith("text") || file.type === "application/json"){
     file.text().then(text => {
       console.log(text);
+      const cardEl = document.createElement('mdui-card');
+      cardEl.textContent = text;
+      cardEl.style.maxHeight = '70vh';
+      cardEl.style.overflow = 'auto';
+      cardEl.style.padding = '10px';
+      cardEl.variant='filled'
+      filePreviewDialog.appendChild(dialogTitleEl);
+      filePreviewDialog.appendChild(cardEl);
+      filePreviewDialog.appendChild(closeDialogButton);
+      filePreviewDialog.setAttribute('open', '');
     });
+  }
+  else if (file.type.startsWith("audio")){
+    const reader = new FileReader();
+    reader.onload = () => {
+      console.log(reader.result);
+      const audioEl = document.createElement('audio');
+      audioEl.controls = true;
+      audioEl.src = reader.result;
+      audioEl.style.width = '100%';
+      filePreviewDialog.appendChild(dialogTitleEl);
+      filePreviewDialog.appendChild(audioEl);
+      filePreviewDialog.appendChild(closeDialogButton);
+      filePreviewDialog.setAttribute('open', '');
+    };
+    reader.readAsDataURL(file);
+  }
+  else if (file.type.startsWith("video")){
+    const reader = new FileReader();
+    reader.onload = () => {
+      console.log(reader.result);
+      const videoEl = document.createElement('video');
+      videoEl.controls = true;
+      videoEl.src = reader.result;
+      videoEl.style.maxWidth = '100%';
+      videoEl.style.maxHeight = '70vh';
+      filePreviewDialog.appendChild(dialogTitleEl);
+      filePreviewDialog.appendChild(videoEl);
+      filePreviewDialog.appendChild(closeDialogButton);
+      filePreviewDialog.setAttribute('open', '');
+    };
+    reader.readAsDataURL(file);
   }
   else {
     console.warn('Failed to open:', file.type)
     mdui.snackbar({ message: 'This file type is not supported yet. 😢' });
   }
 }
+});
 
 
 // Register service worker for offline support
