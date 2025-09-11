@@ -783,6 +783,9 @@ function openFilePreview(file){
     reader.onload = () => {
       const imgEl = document.createElement("img")
       imgEl.src = reader.result
+      imgEl.style.width = "100%"
+      imgEl.style.height = "100%"
+      imgEl.style.objectFit = "contain"
       filePreviewContent.appendChild(imgEl)
     }
     reader.readAsDataURL(file);
