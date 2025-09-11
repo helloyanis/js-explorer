@@ -29,6 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const dropArea         = document.getElementById('dropArea');
   const scanProgress     = document.getElementById('scanProgress');
 
+  mdui.setColorScheme('#EAC452');
+
   // Displays an alert if the user is not on Firefox
   if (navigator.userAgent.indexOf('Gecko/') === -1) {
     if (sessionStorage.getItem('browserWarningShown') === 'true') return; // Don't show again if already shown
@@ -54,17 +56,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if(navigationRail.disabled && !automaticNavChange) {
       mdui.snackbar({ message: 'Please wait for the scan to finish!' });
       // Revert to previous value
-      automaticNavChange = true; // Allow navigation rail change
+      automaticNavChange = true;
       navigationRail.value=='home' ? scanResultsEl.click() : resetButton.click();
       return;
     }
-    automaticNavChange = false; // Reset flag
+    
     console.log('Navigation rail changed:', event.target.value);
     if(event.target.value === 'scan') {
       //Check for files to scan from picker or drag and drop
-      if (!filePicker.files.length && !hasDroppedFiles) {
+      if (!filePicker.files.length && !hasDroppedFiles && !automaticNavChange) {
         mdui.snackbar({ message: 'Please start a scan first!' });
-        resetButton.click();
+        resetUI();
         return;
       }
       // Swap UI to show scan results
@@ -231,7 +233,6 @@ function traverseFileTree(entry, callback, onComplete) {
     dropArea.classList.remove('hidden');
     scanButton.disabled = false;
     scanButton.loading = false;
-    navigationRail.value = 'home'; // reset navigation rail
   }
   sizeFilterEl.addEventListener('input', () => {
     const value = parseFloat(sizeFilterEl.value);
@@ -715,3 +716,15 @@ function traverseFileTree(entry, callback, onComplete) {
     return name.substring(name.lastIndexOf("\\") + 1);
   }
 });
+
+
+// Register service worker for offline support
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js")
+    .then(registration => {
+      console.log("Service Worker registered with scope:", registration.scope);
+    })
+    .catch(error => {
+      console.error("Service Worker registration failed:", error);
+    });
+}
