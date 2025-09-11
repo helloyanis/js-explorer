@@ -734,12 +734,13 @@ function openFilePreview(file){
     };
     reader.readAsDataURL(file);
   }
-  else if (file.type.startsWith("text")){
+  else if (file.type.startsWith("text") || file.type === "application/json"){
     file.text().then(text => {
       console.log(text);
     });
   }
   else {
+    console.warn('Failed to open:', file.type)
     mdui.snackbar({ message: 'This file type is not supported yet. 😢' });
   }
 }
