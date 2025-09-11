@@ -502,6 +502,7 @@ function traverseFileTree(entry, callback, onComplete) {
   function renderList(items) {
     const ul = document.createElement('mdui-list');
     const parentTotalSize = items.reduce((sum, item) => sum + (item.size || 0), 0);
+    ul.appendChild(createBreadCrumbs())
     ul.appendChild(createUpDirectoryItem());
     const folderItems = items.filter(item=>item.isDirectory)
     const fileItems = items.filter(item=>!item.isDirectory)
@@ -590,6 +591,34 @@ function traverseFileTree(entry, callback, onComplete) {
       navigateToDirectory(dirname(currentPath));
     };
     return upItem;
+  }
+
+  function createBreadCrumbs(){
+    const parrent = document.createElement("div")
+    parrent.id = "crumbs"
+    const crumbs = currentPath.split("/").filter(Boolean)
+    let tempPath = []
+    crumbs.forEach((path, i)=>{
+      tempPath.push(path)
+      const targetPath = tempPath.join("/")
+      const crumb = document.createElement("mdui-button")
+      crumb.setAttribute("variant","tonal")
+      crumb.innerHTML = path
+      parrent.appendChild(crumb)
+      if (i < crumbs.length - 1) {
+        const sep = document.createElement("span");
+        sep.className = "crumb-separator"
+        sep.textContent = "›";
+        parrent.appendChild(sep);
+        crumb.addEventListener("click", _=>{
+          navigateToDirectory(targetPath)
+        })
+      }
+      else {
+        crumb.disabled = true
+      }
+    })
+    return parrent
   }
   /**
    * Navigue vers un dossier donné.
