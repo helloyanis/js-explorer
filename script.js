@@ -589,13 +589,16 @@ function traverseFileTree(entry, callback, onComplete) {
       li.innerHTML = `${getFileName(item.name)}<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg></mdui-icon>${progressHTML}<span slot="description">${isIndeterminate?"Calculating size...":`<b>${formatSize(item.size)}</b>`}</span>`;
     } else {
       li.innerHTML = `${getFileName(item.name)}${getFileIcon(item.name)}${progressHTML}<span slot="description"><b>${formatSize(item.size)}</b></span>`;
-      li.nonclickable = true;
     }
     li.onclick = () => {
       if (item.isDirectory) {
         navigateToDirectory(item.path);
       } else {
-        //window.open("file:///" + item.path, '_blank');
+        const file = getFileFromPath(item.path)
+        if (!file){
+          return mdui.snackbar({ message: 'Failed to open file. 😔' });
+        }
+        openFilePreview(file)
       }
     };
     return li;
@@ -717,6 +720,29 @@ function traverseFileTree(entry, callback, onComplete) {
     return name.substring(name.lastIndexOf("\\") + 1);
   }
 });
+
+
+function getFileFromPath(path){
+  return Array.from(filePicker.files).find(f => f.webkitRelativePath === path) || null;
+}
+
+function openFilePreview(file){
+  if (file.type.startsWith("image")){
+    const reader = new FileReader();
+    reader.onload = () => {
+      console.log(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }
+  else if (file.type.startsWith("text")){
+    file.text().then(text => {
+      console.log(text);
+    });
+  }
+  else {
+    mdui.snackbar({ message: 'This file type is not supported yet. 😢' });
+  }
+}
 
 
 // Register service worker for offline support
