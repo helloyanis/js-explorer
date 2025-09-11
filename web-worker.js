@@ -1,7 +1,10 @@
 // web-worker.js
+let fileList = [];
+
 self.onmessage = async e => {
   if (e.data.action === 'init') {
     try {
+      fileList = e.data.files;
       const entries = buildEntries(e.data.files);
       const tree = buildDirectoryMap(entries);
       // Send total count of entries (files + directories)
@@ -20,6 +23,10 @@ self.onmessage = async e => {
     } catch (err) {
       postMessage({ action:'error', message: err.message });
     }
+  }
+  if (e.data.action === 'getFileByPath') {
+    const file = Array.from(fileList).find(f => f.webkitRelativePath === e.data.path) || null;
+    postMessage({ action: 'fileResult', path: e.data.path, file });
   }
 };
 // turn File objects into { path, name, isDirectory, size }

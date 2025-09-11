@@ -615,11 +615,12 @@ function traverseFileTree(entry, callback, onComplete) {
     } else {
       li.innerHTML = `${getFileName(item.name)}${getFileIcon(item.name)}${progressHTML}<span slot="description"><b>${formatSize(item.size)}</b></span>`;
     }
-    li.onclick = () => {
+    li.onclick = async () => {
       if (item.isDirectory) {
         navigateToDirectory(item.path);
       } else {
-        const file = getFileFromPath(item.path)
+        const file = await getFileFromPath(item.path);
+        console.log('Opening file:', file);
         if (!file){
           return mdui.snackbar({ message: 'Failed to open file. 😔' });
         }
@@ -694,6 +695,8 @@ function traverseFileTree(entry, callback, onComplete) {
       case 'wav':
       case 'flac':
       case 'ogg':
+      case 'mid':
+      case 'm4a':
         return '<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M400-120q-66 0-113-47t-47-113q0-66 47-113t113-47q23 0 42.5 5.5T480-418v-422h240v160H560v400q0 66-47 113t-113 47Z"/></svg></mdui-icon>';
       case 'mp4':
       case 'avi':
@@ -744,11 +747,22 @@ function traverseFileTree(entry, callback, onComplete) {
   function getFileName(name) {
     return name.substring(name.lastIndexOf("\\") + 1);
   }
-});
 
-
-function getFileFromPath(path){
-  return Array.from(filePicker.files).find(f => f.webkitRelativePath === path) || null;
+  // Function to get the File object from the path
+function getFileFromPath(path) {
+  // Since we don't have direct access to the File objects in the cache,
+  // we need to ask the worker to find it for us.
+  return new Promise((resolve, reject) => {
+    if (!worker) return reject('Worker not initialized');
+    const listener = (ev) => {
+      if (ev.data.action === 'fileResult' && ev.data.path === path) {
+        worker.removeEventListener('message', listener);
+        resolve(ev.data.file || null);
+      }
+    };
+    worker.addEventListener('message', listener);
+    worker.postMessage({ action: 'getFileByPath', path });
+  });
 }
 
 function openFilePreview(file){
@@ -763,14 +777,13 @@ function openFilePreview(file){
       </svg>
     `
   }
-
   if (file.type.startsWith("image")){
     prepare()
     const reader = new FileReader();
     reader.onload = () => {
-      const img = document.createElement("img")
-      img.src = reader.result
-      filePreviewContent.appendChild(img)
+      const imgEl = document.createElement("img")
+      imgEl.src = reader.result
+      filePreviewContent.appendChild(imgEl)
     }
     reader.readAsDataURL(file);
   }
@@ -780,14 +793,35 @@ function openFilePreview(file){
       const pre = document.createElement("pre")
       pre.innerText = text
       filePreviewContent.appendChild(pre)
-    });
+    })
+  }
+  else if (file.type.startsWith("audio")){
+    const reader = new FileReader();
+    reader.onload = () => {
+      const audioEl = document.createElement('audio');
+      audioEl.controls = true;
+      audioEl.src = reader.result;
+      audioEl.style.width = '100%';
+      filePreviewContent.appendChild(audioEl);
+    }
+    reader.readAsDataURL(file);
+  }
+  else if (file.type.startsWith("video")){
+    const reader = new FileReader();
+    reader.onload = () => {
+      const videoEl = document.createElement('video');
+      videoEl.controls = true;
+      videoEl.src = reader.result;
+      filePreviewContent.appendChild(videoEl);
+    }
+    reader.readAsDataURL(file);
   }
   else {
-    console.log(file)
     console.warn('Failed to open:', file.type)
     mdui.snackbar({ message: 'This file type is not supported yet. 😢' });
   }
 }
+});
 
 
 // Register service worker for offline support
