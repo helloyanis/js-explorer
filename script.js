@@ -75,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (displayMode === 'all') {
       renderAllFiles();
     } else {
+      navigationRail.disabled = false
       renderList(directoryCache.get(currentPath) || []);
     }
     } else if (event.target.value === 'home') {

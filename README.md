@@ -1,8 +1,8 @@
-# Windows explorer 2
+# JavaScript File Explorer
 
 ### Analyze the size of your files and folders, just from a web browser!
 
-**[View it online!](https://windowsexplorer2.🦊💻.ws/)**
+**[View it online!](https://fileexplorer.🦊💻.ws/)**
 
 This site allows you to select a location on your device, and it will then start scanning all the files and compute their size with an easy to read interface!
 
@@ -17,7 +17,7 @@ As of the date of writing this, Firefox has the best compatibility with this app
 |---------------------------------|-------------------------------------------------------------------|-------------------------------------------------------------------|
 | Drag and dropping folders       | ✅ The fastest option                                              | ⚠️ Will not show the subfolders                                    |
 | Importing files with the button | ⚠️ Slow for large folders                                          | ⚠️ Extremely slow for large folders                                |
-| Displaying large lists          | ✅ Only slow on extremely large lists (100k+ elements in one list) | ⚠️ Slow, will sometimes not load the list and make the browser lag |
+| Displaying large lists          | ✅ Only slow on extremely large lists (100k+ elements in one list) | ⚠️ Slow, will sometimes not load the list and slow down the browser |
 
 > 💡 Firefox for Android is not yet compatible with this app, due to [this Firefox bug](https://bugzilla.mozilla.org/show_bug.cgi?id=1973726)
 
