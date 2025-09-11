@@ -1,14 +1,16 @@
 # JavaScript File Explorer
 
+A school project made in less than a week!
+
 ### Analyze the size of your files and folders, just from a web browser!
 
-**[View it online!](https://fileexplorer.🦊💻.ws/)**
+**[View it online!](https://explorer.🦊💻.ws/)**
 
 This site allows you to select a location on your device, and it will then start scanning all the files and compute their size with an easy to read interface!
 
-- No data is being transmitted, it's all happening on-device!
-- No need to install anything! Just open your browser!
-- Cross-platform! Tested on Windows and Mac, should also work on Linux!
+- 🛡️ No data is being transmitted, it's all happening on-device!
+- 📲 No need to install anything! Just open your browser! (But you can still install the app from your browser and use it even offline!)
+- 🌐 Cross-platform! Tested on 🪟 Windows and 🍎 Mac, should also work on 🐧 Linux!
 
 ## ⚠️ Works best on Firefox
 As of the date of writing this, Firefox has the best compatibility with this app. See the compatibility table below
