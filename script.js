@@ -28,6 +28,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const navigationRail   = document.getElementById('navigationRail');
   const dropArea         = document.getElementById('dropArea');
   const scanProgress     = document.getElementById('scanProgress');
+  const filePreview      = document.getElementById('filePreview');
+  const filePreviewTitle = document.getElementById('filePreviewTitle');
+  const filePreviewClose = document.getElementById('filePreviewClose');
+  const filePreviewContent=document.getElementById('filePreviewContent');
+  const filePreviewFullscreen=document.getElementById('filePreviewFullscreen');
+
+
+  filePreviewClose.addEventListener('click', _=> filePreview.open = false)
+  filePreviewFullscreen.addEventListener('click', _=>{
+    if (filePreview.hasAttribute("fullscreen")){
+      filePreview.fullscreen = false
+      filePreviewFullscreen.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <path fill="lime" d="M9.7 9.71a1 1 0 0 1-1.41 0L3.5 4.92l-.35.34-1.44 1.45a1 1 0 0 1-1.09.21A.99.99 0 0 1 0 6V1a1 1 0 0 1 1-1h5c.4 0 .77.24.92.62a1 1 0 0 1-.21 1.09L5.26 3.15l-.34.35 4.79 4.79a1 1 0 0 1 0 1.42zm4.6 0a1 1 0 0 0 1.41 0l4.8-4.79.34.34 1.44 1.45a1 1 0 0 0 1.09.21A.99.99 0 0 0 24 6V1a1 1 0 0 0-1-1h-5c-.4 0-.77.24-.92.62a1 1 0 0 0 .21 1.09l1.45 1.44.34.35-4.79 4.79a1 1 0 0 0 0 1.42zm-4.6 4.58A.98.98 0 0 0 9 14c-.26 0-.51.1-.71.29L3.5 19.08l-.35-.34-1.44-1.45a1 1 0 0 0-1.09-.21A.99.99 0 0 0 0 18v5a1 1 0 0 0 1 1h5c.4 0 .77-.24.92-.62a1 1 0 0 0-.21-1.09l-1.45-1.44-.34-.35 4.79-4.79a1 1 0 0 0 0-1.42zm4.6 0a1 1 0 0 1 1.41 0l4.8 4.79.34-.34 1.44-1.45a1 1 0 0 1 1.09-.21c.38.15.62.52.62.92v5a1 1 0 0 1-1 1h-5a.99.99 0 0 1-.92-.62 1 1 0 0 1 .21-1.09l1.45-1.44.34-.35-4.79-4.79a1 1 0 0 1 0-1.42z"/>
+        </svg>
+      `
+    } else {
+      filePreview.fullscreen = true
+      filePreviewFullscreen.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <path fill="lime" d="M21 15a1 1 0 0 1 .12 2H17v4a1 1 0 0 1-.88 1H16a1 1 0 0 1-1-.88V16a1 1 0 0 1 .88-1H21ZM8 15h.12a1 1 0 0 1 .87.88L9 16v5.12a1 1 0 0 1-.88.87L8 22h-.12a1 1 0 0 1-.87-.88L7 21v-4H2.88a1 1 0 0 1 0-2H8Zm8-13h.12a1 1 0 0 1 .87.88L17 3v4h4.12a1 1 0 0 1 0 2h-5.24a1 1 0 0 1-.87-.88L15 8V2.88a1 1 0 0 1 .88-.87L16 2ZM8 2a1 1 0 0 1 1 .88V8a1 1 0 0 1-.88 1H3a1 1 0 0 1-.12-2H7V3a1 1 0 0 1 .88-1H8Z"/>
+        </svg>
+      `
+    }
+  })
 
   mdui.setColorScheme('#EAC452');
 
@@ -727,19 +752,38 @@ function getFileFromPath(path){
 }
 
 function openFilePreview(file){
+  function prepare(){
+    filePreview.open = true
+    filePreviewTitle.innerHTML = file.name
+    filePreviewContent.innerHTML = ""
+    filePreview.fullscreen = false
+    filePreviewFullscreen.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path fill="lime" d="M9.7 9.71a1 1 0 0 1-1.41 0L3.5 4.92l-.35.34-1.44 1.45a1 1 0 0 1-1.09.21A.99.99 0 0 1 0 6V1a1 1 0 0 1 1-1h5c.4 0 .77.24.92.62a1 1 0 0 1-.21 1.09L5.26 3.15l-.34.35 4.79 4.79a1 1 0 0 1 0 1.42zm4.6 0a1 1 0 0 0 1.41 0l4.8-4.79.34.34 1.44 1.45a1 1 0 0 0 1.09.21A.99.99 0 0 0 24 6V1a1 1 0 0 0-1-1h-5c-.4 0-.77.24-.92.62a1 1 0 0 0 .21 1.09l1.45 1.44.34.35-4.79 4.79a1 1 0 0 0 0 1.42zm-4.6 4.58A.98.98 0 0 0 9 14c-.26 0-.51.1-.71.29L3.5 19.08l-.35-.34-1.44-1.45a1 1 0 0 0-1.09-.21A.99.99 0 0 0 0 18v5a1 1 0 0 0 1 1h5c.4 0 .77-.24.92-.62a1 1 0 0 0-.21-1.09l-1.45-1.44-.34-.35 4.79-4.79a1 1 0 0 0 0-1.42zm4.6 0a1 1 0 0 1 1.41 0l4.8 4.79.34-.34 1.44-1.45a1 1 0 0 1 1.09-.21c.38.15.62.52.62.92v5a1 1 0 0 1-1 1h-5a.99.99 0 0 1-.92-.62 1 1 0 0 1 .21-1.09l1.45-1.44.34-.35-4.79-4.79a1 1 0 0 1 0-1.42z"/>
+      </svg>
+    `
+  }
+
   if (file.type.startsWith("image")){
+    prepare()
     const reader = new FileReader();
     reader.onload = () => {
-      console.log(reader.result);
-    };
+      const img = document.createElement("img")
+      img.src = reader.result
+      filePreviewContent.appendChild(img)
+    }
     reader.readAsDataURL(file);
   }
   else if (file.type.startsWith("text") || file.type === "application/json"){
+    prepare()
     file.text().then(text => {
-      console.log(text);
+      const pre = document.createElement("pre")
+      pre.innerText = text
+      filePreviewContent.appendChild(pre)
     });
   }
   else {
+    console.log(file)
     console.warn('Failed to open:', file.type)
     mdui.snackbar({ message: 'This file type is not supported yet. 😢' });
   }
