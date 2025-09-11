@@ -503,7 +503,14 @@ function traverseFileTree(entry, callback, onComplete) {
     const ul = document.createElement('mdui-list');
     const parentTotalSize = items.reduce((sum, item) => sum + (item.size || 0), 0);
     ul.appendChild(createUpDirectoryItem());
-    sortItems(items, sortMethod).forEach(item =>
+    const folderItems = items.filter(item=>item.isDirectory)
+    const fileItems = items.filter(item=>!item.isDirectory)
+    sortItems(folderItems, sortMethod).forEach(item =>
+      // only show files larger than the filter size
+      (fileSizeFilter <= 0 || (item.size || 0) >= fileSizeFilter) &&
+      ul.appendChild(createListItem(item, parentTotalSize))
+    );
+    sortItems(fileItems, sortMethod).forEach(item =>
       // only show files larger than the filter size
       (fileSizeFilter <= 0 || (item.size || 0) >= fileSizeFilter) &&
       ul.appendChild(createListItem(item, parentTotalSize))
