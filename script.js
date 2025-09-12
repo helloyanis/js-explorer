@@ -36,7 +36,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const filePreviewFullscreen=document.getElementById('filePreviewFullscreen');
 
 
-  filePreviewClose.addEventListener('click', _=> filePreview.open = false)
+  filePreviewClose.addEventListener('click', _=> {
+    filePreview.open = false
+  })
+  filePreview.addEventListener("close", _=>{
+    filePreviewContent.innerHTML = ""
+  })
   filePreviewFullscreen.addEventListener('click', _=>{
     if (filePreview.hasAttribute("fullscreen")){
       filePreview.fullscreen = false
@@ -853,6 +858,7 @@ function openFilePreview(file){
     })
   }
   else if (file.type.startsWith("audio")){
+    prepare()
     const reader = new FileReader();
     reader.onload = () => {
       const audioEl = document.createElement('audio');
@@ -864,11 +870,14 @@ function openFilePreview(file){
     reader.readAsDataURL(file);
   }
   else if (file.type.startsWith("video")){
+    prepare()
     const reader = new FileReader();
     reader.onload = () => {
       const videoEl = document.createElement('video');
       videoEl.controls = true;
       videoEl.src = reader.result;
+      videoEl.style.width = "100%"
+      videoEl.style.height = "100%"
       filePreviewContent.appendChild(videoEl);
     }
     reader.readAsDataURL(file);
