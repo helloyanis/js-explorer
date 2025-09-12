@@ -497,15 +497,16 @@ function traverseFileTree(entry, callback, onComplete) {
     parts.forEach((part, idx) => {
       breadcrumbEl.appendChild(separatorEl.cloneNode(true));
       current += (current ? '/' : '') + part;
-      const path = document.createElement('mdui-button');
-      path.textContent = part;
-      path.variant = 'text';
+      const btn = document.createElement('mdui-button');
+      btn.textContent = part;
+      btn.variant = 'text';
       if (idx === parts.length - 1) {
-        path.disabled = true;
+        btn.disabled = true;
       } else {
-        path.onclick = () => navigateToDirectory(current);
+        const targetPath = current;
+        btn.onclick = () => navigateToDirectory(targetPath);
       }
-      breadcrumbEl.appendChild(path);
+      breadcrumbEl.appendChild(btn);
     });
   }
   /**
