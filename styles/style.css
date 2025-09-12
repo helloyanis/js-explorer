@@ -55,3 +55,8 @@ body {
 .hidden {
     display: none !important;
 }
+#breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+}

@@ -472,10 +472,48 @@ function traverseFileTree(entry, callback, onComplete) {
     };
   }
   /**
+   * Affiche le fil d'Ariane du chemin courant.
+   * @param {string} path
+   */
+  function renderBreadcrumb(path) {
+    const breadcrumbEl = document.getElementById('breadcrumb');
+    breadcrumbEl.innerHTML = '';
+    const normalized = normalizePath(path);
+    const parts = normalized ? normalized.split('/') : [];
+    // Ajoute la racine
+    const rootEl = document.createElement('mdui-button');
+    rootEl.textContent = 'Root';
+    rootEl.variant = 'text';
+    rootEl.onclick = () => navigateToDirectory('');
+    if (parts.length === 0) {
+      rootEl.disabled = true;
+    }
+    breadcrumbEl.appendChild(rootEl);
+
+    const separatorEl = document.createElement('mdui-icon')
+    separatorEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/></svg>';
+    let current = '';
+    parts.forEach((part, idx) => {
+      breadcrumbEl.appendChild(separatorEl.cloneNode(true));
+      current += (current ? '/' : '') + part;
+      const path = document.createElement('mdui-button');
+      path.textContent = part;
+      path.variant = 'text';
+      if (idx === parts.length - 1) {
+        path.disabled = true;
+      } else {
+        path.onclick = () => navigateToDirectory(current);
+      }
+      breadcrumbEl.appendChild(path);
+    });
+  }
+  /**
    * Rend la liste des fichiers/dossiers.
    * @param {Array} items
    */
   function renderList(items) {
+    renderBreadcrumb(currentPath);
+
     const ul = document.createElement('mdui-list');
     const parentTotalSize = items.reduce((sum, item) => sum + (item.size || 0), 0);
     ul.appendChild(createUpDirectoryItem());
@@ -779,14 +817,13 @@ function openFilePreview(file){
   else if (file.type.startsWith("text") || file.type === "application/json"){
     file.text().then(text => {
       console.log(text);
-      const cardEl = document.createElement('mdui-card');
-      cardEl.textContent = text;
-      cardEl.style.maxHeight = '70vh';
-      cardEl.style.overflow = 'auto';
-      cardEl.style.padding = '10px';
-      cardEl.variant='filled'
+      const textFieldEl = document.createElement('mdui-text-field');
+      textFieldEl.value = text;
+      textFieldEl.rows='5';
+      textFieldEl.readonly='true'
+      textFieldEl.style.width = '30rem';
       filePreviewDialog.appendChild(dialogTitleEl);
-      filePreviewDialog.appendChild(cardEl);
+      filePreviewDialog.appendChild(textFieldEl);
       filePreviewDialog.appendChild(closeDialogButton);
       filePreviewDialog.setAttribute('open', '');
     });
@@ -824,7 +861,7 @@ function openFilePreview(file){
   }
   else {
     console.warn('Failed to open:', file.type)
-    mdui.snackbar({ message: 'This file type is not supported yet. 😢' });
+    mdui.snackbar({ message: 'Cannot open this file type' });
   }
 }
 });
