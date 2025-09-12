@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let totalFilesToScan = 0;
   let filesScanned = 0;
   let automaticNavChange = false;
+  let showThumbnails = true;
 
   // UI elements
   const locationSelectEl = document.getElementById('locationSelect');
@@ -650,6 +651,22 @@ function traverseFileTree(entry, callback, onComplete) {
       li.innerHTML = `${getFileName(item.name)}<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg></mdui-icon>${progressHTML}<span slot="description">${isIndeterminate?"Calculating size...":`<b>${formatSize(item.size)}</b>`}</span>`;
     } else {
       li.innerHTML = `${getFileName(item.name)}${getFileIcon(item.name)}${progressHTML}<span slot="description"><b>${formatSize(item.size)}</b></span>`;
+      if (showThumbnails){
+        setTimeout(async _=>{
+          const file = await getFileFromPath(item.path)
+          if (file.type.startsWith("image")){
+            const reader = new FileReader();
+            reader.onload = () => {
+              li.innerHTML = `${getFileName(item.name)}
+              <mdui-icon slot="icon">
+                <img src="${reader.result}" style="height:100%;width:100%;object-fit:cover;">
+              </mdui-icon>
+              ${progressHTML}<span slot="description"><b>${formatSize(item.size)}</b></span>`;
+            }
+            reader.readAsDataURL(file);
+          }
+        }, 0)
+      }
     }
     li.onclick = async () => {
       if (item.isDirectory) {
@@ -822,6 +839,7 @@ function openFilePreview(file){
       imgEl.style.width = "100%"
       imgEl.style.height = "100%"
       imgEl.style.objectFit = "contain"
+      imgEl.style.userSelect = "none"
       filePreviewContent.appendChild(imgEl)
     }
     reader.readAsDataURL(file);
