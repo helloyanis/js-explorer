@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const dropArea         = document.getElementById('dropArea');
   const scanProgress     = document.getElementById('scanProgress');
   const filePreviewDialog = document.getElementById('filePreviewDialog');
+  const breadcrumbEl     = document.getElementById('breadcrumb');
 
   mdui.setColorScheme('#EAC452');
 
@@ -233,6 +234,7 @@ function traverseFileTree(entry, callback, onComplete) {
     fileListEl.innerHTML = '';
     loadingMessage.classList.add('hidden');
     dropArea.classList.remove('hidden');
+    breadcrumbEl.innerHTML = '';
     scanButton.disabled = false;
     scanButton.loading = false;
   }
@@ -476,7 +478,6 @@ function traverseFileTree(entry, callback, onComplete) {
    * @param {string} path
    */
   function renderBreadcrumb(path) {
-    const breadcrumbEl = document.getElementById('breadcrumb');
     breadcrumbEl.innerHTML = '';
     const normalized = normalizePath(path);
     const parts = normalized ? normalized.split('/') : [];
@@ -779,6 +780,10 @@ function getFileFromPath(path) {
   });
 }
 
+filePreviewDialog.addEventListener('closed', () => {
+  filePreviewDialog.innerHTML = '';
+});
+
 function openFilePreview(file){
   const dialogTitle = file.name.length > 30 ? file.name.slice(0, 15) + '...' + file.name.slice(-15) : file.name;
   const dialogTitleEl = document.createElement('h3');
@@ -804,8 +809,8 @@ function openFilePreview(file){
       console.log(reader.result);
       const imageEl = document.createElement('img');
       imageEl.src = reader.result;
-      imageEl.style.maxWidth = '100%';
-      imageEl.style.maxHeight = '100%';
+      imageEl.style.maxWidth = '30rem';
+      imageEl.style.maxHeight = '65vh';
 
       filePreviewDialog.appendChild(dialogTitleEl);
       filePreviewDialog.appendChild(imageEl);
@@ -819,7 +824,7 @@ function openFilePreview(file){
       console.log(text);
       const textFieldEl = document.createElement('mdui-text-field');
       textFieldEl.value = text;
-      textFieldEl.rows='5';
+      textFieldEl.rows='10';
       textFieldEl.readonly='true'
       textFieldEl.style.width = '30rem';
       filePreviewDialog.appendChild(dialogTitleEl);
@@ -851,7 +856,7 @@ function openFilePreview(file){
       videoEl.controls = true;
       videoEl.src = reader.result;
       videoEl.style.maxWidth = '100%';
-      videoEl.style.maxHeight = '70vh';
+      videoEl.style.maxHeight = '65vh';
       filePreviewDialog.appendChild(dialogTitleEl);
       filePreviewDialog.appendChild(videoEl);
       filePreviewDialog.appendChild(closeDialogButton);

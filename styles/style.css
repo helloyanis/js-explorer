@@ -60,3 +60,6 @@ body {
     align-items: center;
     flex-wrap: nowrap;
 }
+#filePreview {
+    flex-direction: column;
+}
