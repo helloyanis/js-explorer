@@ -853,8 +853,11 @@ function openFilePreview(file){
     prepare()
     file.text().then(text => {
       const pre = document.createElement("pre")
-      pre.innerText = text
+      const code = document.createElement("code")
+      code.textContent = text
+      pre.appendChild(code)
       filePreviewContent.appendChild(pre)
+      hljs.highlightElement(code)
     })
   }
   else if (file.type.startsWith("audio")){
@@ -888,6 +891,12 @@ function openFilePreview(file){
   }
 }
 });
+
+
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+document.querySelector("#hljs-theme").href = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/${
+  prefersDark ? "github-dark-dimmed" : "vs"
+}.min.css`
 
 
 // Register service worker for offline support
