@@ -55,3 +55,17 @@ body {
 .hidden {
     display: none !important;
 }
+#crumbs{
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding-bottom: 0.5em;
+    padding-left: 1em;
+}
+#crumbs .crumb-separator{
+    font-size: 24px;
+    line-height: 0;
+}
+#filePreview {
+    flex-direction: column;
+}

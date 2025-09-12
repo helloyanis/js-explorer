@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let totalFilesToScan = 0;
   let filesScanned = 0;
   let automaticNavChange = false;
+  let showThumbnails = true;
 
   // UI elements
   const locationSelectEl = document.getElementById('locationSelect');
@@ -28,7 +29,36 @@ document.addEventListener('DOMContentLoaded', () => {
   const navigationRail   = document.getElementById('navigationRail');
   const dropArea         = document.getElementById('dropArea');
   const scanProgress     = document.getElementById('scanProgress');
-  const filePreviewDialog = document.getElementById('filePreviewDialog');
+  const filePreview      = document.getElementById('filePreview');
+  const filePreviewTitle = document.getElementById('filePreviewTitle');
+  const filePreviewClose = document.getElementById('filePreviewClose');
+  const filePreviewContent=document.getElementById('filePreviewContent');
+  const filePreviewFullscreen=document.getElementById('filePreviewFullscreen');
+
+
+  filePreviewClose.addEventListener('click', _=> {
+    filePreview.open = false
+  })
+  filePreview.addEventListener("close", _=>{
+    filePreviewContent.innerHTML = ""
+  })
+  filePreviewFullscreen.addEventListener('click', _=>{
+    if (filePreview.hasAttribute("fullscreen")){
+      filePreview.fullscreen = false
+      filePreviewFullscreen.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <path fill="lime" d="M9.7 9.71a1 1 0 0 1-1.41 0L3.5 4.92l-.35.34-1.44 1.45a1 1 0 0 1-1.09.21A.99.99 0 0 1 0 6V1a1 1 0 0 1 1-1h5c.4 0 .77.24.92.62a1 1 0 0 1-.21 1.09L5.26 3.15l-.34.35 4.79 4.79a1 1 0 0 1 0 1.42zm4.6 0a1 1 0 0 0 1.41 0l4.8-4.79.34.34 1.44 1.45a1 1 0 0 0 1.09.21A.99.99 0 0 0 24 6V1a1 1 0 0 0-1-1h-5c-.4 0-.77.24-.92.62a1 1 0 0 0 .21 1.09l1.45 1.44.34.35-4.79 4.79a1 1 0 0 0 0 1.42zm-4.6 4.58A.98.98 0 0 0 9 14c-.26 0-.51.1-.71.29L3.5 19.08l-.35-.34-1.44-1.45a1 1 0 0 0-1.09-.21A.99.99 0 0 0 0 18v5a1 1 0 0 0 1 1h5c.4 0 .77-.24.92-.62a1 1 0 0 0-.21-1.09l-1.45-1.44-.34-.35 4.79-4.79a1 1 0 0 0 0-1.42zm4.6 0a1 1 0 0 1 1.41 0l4.8 4.79.34-.34 1.44-1.45a1 1 0 0 1 1.09-.21c.38.15.62.52.62.92v5a1 1 0 0 1-1 1h-5a.99.99 0 0 1-.92-.62 1 1 0 0 1 .21-1.09l1.45-1.44.34-.35-4.79-4.79a1 1 0 0 1 0-1.42z"/>
+        </svg>
+      `
+    } else {
+      filePreview.fullscreen = true
+      filePreviewFullscreen.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <path fill="lime" d="M21 15a1 1 0 0 1 .12 2H17v4a1 1 0 0 1-.88 1H16a1 1 0 0 1-1-.88V16a1 1 0 0 1 .88-1H21ZM8 15h.12a1 1 0 0 1 .87.88L9 16v5.12a1 1 0 0 1-.88.87L8 22h-.12a1 1 0 0 1-.87-.88L7 21v-4H2.88a1 1 0 0 1 0-2H8Zm8-13h.12a1 1 0 0 1 .87.88L17 3v4h4.12a1 1 0 0 1 0 2h-5.24a1 1 0 0 1-.87-.88L15 8V2.88a1 1 0 0 1 .88-.87L16 2ZM8 2a1 1 0 0 1 1 .88V8a1 1 0 0 1-.88 1H3a1 1 0 0 1-.12-2H7V3a1 1 0 0 1 .88-1H8Z"/>
+        </svg>
+      `
+    }
+  })
 
   mdui.setColorScheme('#EAC452');
 
@@ -478,8 +508,16 @@ function traverseFileTree(entry, callback, onComplete) {
   function renderList(items) {
     const ul = document.createElement('mdui-list');
     const parentTotalSize = items.reduce((sum, item) => sum + (item.size || 0), 0);
+    ul.appendChild(createBreadCrumbs())
     ul.appendChild(createUpDirectoryItem());
-    sortItems(items, sortMethod).forEach(item =>
+    const folderItems = items.filter(item=>item.isDirectory)
+    const fileItems = items.filter(item=>!item.isDirectory)
+    sortItems(folderItems, sortMethod).forEach(item =>
+      // only show files larger than the filter size
+      (fileSizeFilter <= 0 || (item.size || 0) >= fileSizeFilter) &&
+      ul.appendChild(createListItem(item, parentTotalSize))
+    );
+    sortItems(fileItems, sortMethod).forEach(item =>
       // only show files larger than the filter size
       (fileSizeFilter <= 0 || (item.size || 0) >= fileSizeFilter) &&
       ul.appendChild(createListItem(item, parentTotalSize))
@@ -560,6 +598,34 @@ function traverseFileTree(entry, callback, onComplete) {
     };
     return upItem;
   }
+
+  function createBreadCrumbs(){
+    const parrent = document.createElement("div")
+    parrent.id = "crumbs"
+    const crumbs = currentPath.split("/").filter(Boolean)
+    let tempPath = []
+    crumbs.forEach((path, i)=>{
+      tempPath.push(path)
+      const targetPath = tempPath.join("/")
+      const crumb = document.createElement("mdui-button")
+      crumb.setAttribute("variant","tonal")
+      crumb.innerHTML = path
+      parrent.appendChild(crumb)
+      if (i < crumbs.length - 1) {
+        const sep = document.createElement("span");
+        sep.className = "crumb-separator"
+        sep.textContent = "›";
+        parrent.appendChild(sep);
+        crumb.addEventListener("click", _=>{
+          navigateToDirectory(targetPath)
+        })
+      }
+      else {
+        crumb.disabled = true
+      }
+    })
+    return parrent
+  }
   /**
    * Navigue vers un dossier donné.
    * @param {string} dirPath
@@ -590,6 +656,22 @@ function traverseFileTree(entry, callback, onComplete) {
       li.innerHTML = `${getFileName(item.name)}<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg></mdui-icon>${progressHTML}<span slot="description">${isIndeterminate?"Calculating size...":`<b>${formatSize(item.size)}</b>`}</span>`;
     } else {
       li.innerHTML = `${getFileName(item.name)}${getFileIcon(item.name)}${progressHTML}<span slot="description"><b>${formatSize(item.size)}</b></span>`;
+      if (showThumbnails){
+        setTimeout(async _=>{
+          const file = await getFileFromPath(item.path)
+          if (file.type.startsWith("image")){
+            const reader = new FileReader();
+            reader.onload = () => {
+              li.innerHTML = `${getFileName(item.name)}
+              <mdui-icon slot="icon">
+                <img src="${reader.result}" style="height:100%;width:100%;object-fit:cover;">
+              </mdui-icon>
+              ${progressHTML}<span slot="description"><b>${formatSize(item.size)}</b></span>`;
+            }
+            reader.readAsDataURL(file);
+          }
+        }, 0)
+      }
     }
     li.onclick = async () => {
       if (item.isDirectory) {
@@ -742,84 +824,65 @@ function getFileFromPath(path) {
 }
 
 function openFilePreview(file){
-  const dialogTitle = file.name.length > 30 ? file.name.slice(0, 15) + '...' + file.name.slice(-15) : file.name;
-  const dialogTitleEl = document.createElement('h3');
-  dialogTitleEl.textContent = dialogTitle;
-  dialogTitleEl.style.textAlign = 'center';
-  dialogTitleEl.style.marginBottom = '10px';
-
-  const closeDialogButton = document.createElement('mdui-button');
-  closeDialogButton.textContent = 'Close';
-  closeDialogButton.variant = 'text';
-  closeDialogButton.style.display = 'block';
-  closeDialogButton.style.margin = '10px auto 0 auto';
-  closeDialogButton.onclick = () => {
-    filePreviewDialog.removeAttribute('open');
-  };
-  filePreviewDialog.innerHTML = '';
-
-
-  // Handle different file types
+  function prepare(){
+    filePreview.open = true
+    filePreviewTitle.innerHTML = file.name
+    filePreviewContent.innerHTML = ""
+    filePreview.fullscreen = false
+    filePreviewFullscreen.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path fill="lime" d="M9.7 9.71a1 1 0 0 1-1.41 0L3.5 4.92l-.35.34-1.44 1.45a1 1 0 0 1-1.09.21A.99.99 0 0 1 0 6V1a1 1 0 0 1 1-1h5c.4 0 .77.24.92.62a1 1 0 0 1-.21 1.09L5.26 3.15l-.34.35 4.79 4.79a1 1 0 0 1 0 1.42zm4.6 0a1 1 0 0 0 1.41 0l4.8-4.79.34.34 1.44 1.45a1 1 0 0 0 1.09.21A.99.99 0 0 0 24 6V1a1 1 0 0 0-1-1h-5c-.4 0-.77.24-.92.62a1 1 0 0 0 .21 1.09l1.45 1.44.34.35-4.79 4.79a1 1 0 0 0 0 1.42zm-4.6 4.58A.98.98 0 0 0 9 14c-.26 0-.51.1-.71.29L3.5 19.08l-.35-.34-1.44-1.45a1 1 0 0 0-1.09-.21A.99.99 0 0 0 0 18v5a1 1 0 0 0 1 1h5c.4 0 .77-.24.92-.62a1 1 0 0 0-.21-1.09l-1.45-1.44-.34-.35 4.79-4.79a1 1 0 0 0 0-1.42zm4.6 0a1 1 0 0 1 1.41 0l4.8 4.79.34-.34 1.44-1.45a1 1 0 0 1 1.09-.21c.38.15.62.52.62.92v5a1 1 0 0 1-1 1h-5a.99.99 0 0 1-.92-.62 1 1 0 0 1 .21-1.09l1.45-1.44.34-.35-4.79-4.79a1 1 0 0 1 0-1.42z"/>
+      </svg>
+    `
+  }
   if (file.type.startsWith("image")){
+    prepare()
     const reader = new FileReader();
     reader.onload = () => {
-      console.log(reader.result);
-      const imageEl = document.createElement('img');
-      imageEl.src = reader.result;
-      imageEl.style.maxWidth = '100%';
-      imageEl.style.maxHeight = '100%';
-
-      filePreviewDialog.appendChild(dialogTitleEl);
-      filePreviewDialog.appendChild(imageEl);
-      filePreviewDialog.appendChild(closeDialogButton);
-      filePreviewDialog.setAttribute('open', '');
-    };
+      const imgEl = document.createElement("img")
+      imgEl.src = reader.result
+      imgEl.style.width = "100%"
+      imgEl.style.height = "100%"
+      imgEl.style.objectFit = "contain"
+      imgEl.style.userSelect = "none"
+      filePreviewContent.appendChild(imgEl)
+    }
     reader.readAsDataURL(file);
   }
   else if (file.type.startsWith("text") || file.type === "application/json"){
+    prepare()
     file.text().then(text => {
-      console.log(text);
-      const cardEl = document.createElement('mdui-card');
-      cardEl.textContent = text;
-      cardEl.style.maxHeight = '70vh';
-      cardEl.style.overflow = 'auto';
-      cardEl.style.padding = '10px';
-      cardEl.variant='filled'
-      filePreviewDialog.appendChild(dialogTitleEl);
-      filePreviewDialog.appendChild(cardEl);
-      filePreviewDialog.appendChild(closeDialogButton);
-      filePreviewDialog.setAttribute('open', '');
-    });
+      const pre = document.createElement("pre")
+      const code = document.createElement("code")
+      code.textContent = text
+      pre.appendChild(code)
+      filePreviewContent.appendChild(pre)
+      hljs.highlightElement(code)
+    })
   }
   else if (file.type.startsWith("audio")){
+    prepare()
     const reader = new FileReader();
     reader.onload = () => {
-      console.log(reader.result);
       const audioEl = document.createElement('audio');
       audioEl.controls = true;
       audioEl.src = reader.result;
       audioEl.style.width = '100%';
-      filePreviewDialog.appendChild(dialogTitleEl);
-      filePreviewDialog.appendChild(audioEl);
-      filePreviewDialog.appendChild(closeDialogButton);
-      filePreviewDialog.setAttribute('open', '');
-    };
+      filePreviewContent.appendChild(audioEl);
+    }
     reader.readAsDataURL(file);
   }
   else if (file.type.startsWith("video")){
+    prepare()
     const reader = new FileReader();
     reader.onload = () => {
-      console.log(reader.result);
       const videoEl = document.createElement('video');
       videoEl.controls = true;
       videoEl.src = reader.result;
-      videoEl.style.maxWidth = '100%';
-      videoEl.style.maxHeight = '70vh';
-      filePreviewDialog.appendChild(dialogTitleEl);
-      filePreviewDialog.appendChild(videoEl);
-      filePreviewDialog.appendChild(closeDialogButton);
-      filePreviewDialog.setAttribute('open', '');
-    };
+      videoEl.style.width = "100%"
+      videoEl.style.height = "100%"
+      filePreviewContent.appendChild(videoEl);
+    }
     reader.readAsDataURL(file);
   }
   else {
@@ -828,6 +891,12 @@ function openFilePreview(file){
   }
 }
 });
+
+
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+document.querySelector("#hljs-theme").href = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/${
+  prefersDark ? "github-dark-dimmed" : "vs"
+}.min.css`
 
 
 // Register service worker for offline support
