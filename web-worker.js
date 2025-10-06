@@ -1,4 +1,3 @@
-// web-worker.js
 let fileList = [];
 
 self.onmessage = async e => {

@@ -1,4 +1,3 @@
-// script.js
 document.addEventListener('DOMContentLoaded', () => {
   let directoryCache = new Map();
   let currentPath = '';
@@ -36,10 +35,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Displays an alert if the user is not on Firefox
   if (navigator.userAgent.indexOf('Gecko/') === -1) {
       if (sessionStorage.getItem('browserWarningShown') !== 'true'){ // Don't show again if already shown
-      mdui.alert({
-        headline: 'Browser Compatibility Warning',
-        description: 'This application is optimized for Firefox. Please use Firefox for the best experience.',
-      });
+      // mdui.alert({
+      //   headline: 'Browser Compatibility Warning',
+      //   description: 'This application is optimized for Firefox. Please use Firefox for the best experience.',
+      // });
+      mdui.snackbar({
+        message: 'This application is optimized for Firefox. You might encounter performance issues.',
+        closeable: true,
+      })
       sessionStorage.setItem('browserWarningShown', 'true');
     }
   }
@@ -530,12 +533,12 @@ function traverseFileTree(entry, callback, onComplete) {
     fileListEl.appendChild(ul);
     fileListEl.scrollTop = scrollPosition;
     if(sessionStorage.getItem('navigateTip') === 'true') return;
-    mdui.alert({
-      headline: 'Start Navigating!',
-      description: 'You can now navigate through the directories while their size is being calculated, by clicking on them. Use the "Up one directory" button to go back. The loading bar near the top of the screen shows the total progress of the size calculation.',
-  });
-    sessionStorage.setItem('navigateTip', 'true');
-}
+//     mdui.alert({
+//         headline: 'Start Navigating!',
+//         description: 'You can now navigate through the directories while their size is being calculated, by clicking on them. Use the "Up one directory" button to go back. The loading bar near the top of the screen shows the total progress of the size calculation.',
+//     });
+//     sessionStorage.setItem('navigateTip', 'true');
+// }
 
   function renderAllFiles() {
   // 1) collect every file entry
