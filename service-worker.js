@@ -1,4 +1,4 @@
-const cacheName = "offline-cache-v2";
+const cacheName = "offline-cache-v3";
 const cacheUrls = [
   "index.html",
   "script.js",
