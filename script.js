@@ -538,7 +538,7 @@ function traverseFileTree(entry, callback, onComplete) {
 //         description: 'You can now navigate through the directories while their size is being calculated, by clicking on them. Use the "Up one directory" button to go back. The loading bar near the top of the screen shows the total progress of the size calculation.',
 //     });
 //     sessionStorage.setItem('navigateTip', 'true');
-// }
+ }
 
   function renderAllFiles() {
   // 1) collect every file entry
