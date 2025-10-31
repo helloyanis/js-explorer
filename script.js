@@ -16,25 +16,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // UI elements
   const locationSelectEl = document.getElementById('locationSelect');
-  const fileListEl       = document.getElementById('fileList');
-  const sortControlsEl   = document.getElementById('sortControls');
-  const filePicker       = document.getElementById('filePicker');
-  const scanButton       = document.getElementById('scanButton');
-  const loadingMessage   = document.getElementById('loadingMessage');
-  const resetButton      = document.getElementById('resetButton');
-  const sizeFilterEl     = document.getElementById('sizeFilter');
-  const scanResultsEl    = document.getElementById('scanResults');
-  const navigationRail   = document.getElementById('navigationRail');
-  const dropArea         = document.getElementById('dropArea');
-  const scanProgress     = document.getElementById('scanProgress');
+  const fileListEl = document.getElementById('fileList');
+  const sortControlsEl = document.getElementById('sortControls');
+  const filePicker = document.getElementById('filePicker');
+  const scanButton = document.getElementById('scanButton');
+  const loadingMessage = document.getElementById('loadingMessage');
+  const resetButton = document.getElementById('resetButton');
+  const sizeFilterEl = document.getElementById('sizeFilter');
+  const scanResultsEl = document.getElementById('scanResults');
+  const navigationRail = document.getElementById('navigationRail');
+  const dropArea = document.getElementById('dropArea');
+  const scanProgress = document.getElementById('scanProgress');
   const filePreviewDialog = document.getElementById('filePreviewDialog');
-  const breadcrumbEl     = document.getElementById('breadcrumb');
+  const breadcrumbEl = document.getElementById('breadcrumb');
 
   mdui.setColorScheme('#EAC452');
 
   // Displays an alert if the user is not on Firefox
   if (navigator.userAgent.indexOf('Gecko/') === -1) {
-      if (sessionStorage.getItem('browserWarningShown') !== 'true'){ // Don't show again if already shown
+    if (sessionStorage.getItem('browserWarningShown') !== 'true') { // Don't show again if already shown
       // mdui.alert({
       //   headline: 'Browser Compatibility Warning',
       //   description: 'This application is optimized for Firefox. Please use Firefox for the best experience.',
@@ -59,16 +59,16 @@ document.addEventListener('DOMContentLoaded', () => {
     filePicker.click();
   });
   navigationRail.addEventListener('change', (event) => {
-    if(navigationRail.disabled && !automaticNavChange) {
+    if (navigationRail.disabled && !automaticNavChange) {
       mdui.snackbar({ message: 'Please wait for the scan to finish!' });
       // Revert to previous value
       automaticNavChange = true;
-      navigationRail.value=='home' ? scanResultsEl.click() : resetButton.click();
+      navigationRail.value == 'home' ? scanResultsEl.click() : resetButton.click();
       return;
     }
-    
+
     console.log('Navigation rail changed:', event.target.value);
-    if(event.target.value === 'scan') {
+    if (event.target.value === 'scan') {
       //Check for files to scan from picker or drag and drop
       if (!filePicker.files.length && !hasDroppedFiles && !automaticNavChange) {
         mdui.snackbar({ message: 'Please start a scan first!' });
@@ -79,13 +79,13 @@ document.addEventListener('DOMContentLoaded', () => {
       locationSelectEl.classList.add('hidden');
       sortControlsEl.classList.remove('hidden');
       fileListEl.classList.remove('hidden');
-      if(!directoryCache.size) return
-    if (displayMode === 'all') {
-      renderAllFiles();
-    } else {
-      navigationRail.disabled = false
-      renderList(directoryCache.get(currentPath) || []);
-    }
+      if (!directoryCache.size) return
+      if (displayMode === 'all') {
+        renderAllFiles();
+      } else {
+        navigationRail.disabled = false
+        renderList(directoryCache.get(currentPath) || []);
+      }
     } else if (event.target.value === 'home') {
       // Reset UI to initial state
       resetUI();
@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     mdui.snackbar({ message: 'File selection cancelled.' });
   });
 
-      // Add drag-and-drop event listeners
+  // Add drag-and-drop event listeners
   document.addEventListener('dragover', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -192,42 +192,42 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  
-// Function to traverse file tree
-function traverseFileTree(entry, callback, onComplete) {
-  if (entry.isFile) {
-    entry.file((file) => {
-      file.webkitRelativePath = entry.fullPath.substring(1); // Remove leading '/'
-      callback(file);
-      if (onComplete) onComplete();
-    }, (error) => {
-      console.error("Error reading file:", error);
-      if (onComplete) onComplete();
-    });
-  } else if (entry.isDirectory) {
-    const dirReader = entry.createReader();
-    dirReader.readEntries((entries) => {
-      let processedCount = 0;
-      if (entries.length === 0) {
+
+  // Function to traverse file tree
+  function traverseFileTree(entry, callback, onComplete) {
+    if (entry.isFile) {
+      entry.file((file) => {
+        file.webkitRelativePath = entry.fullPath.substring(1); // Remove leading '/'
+        callback(file);
         if (onComplete) onComplete();
-        return;
-      }
-      entries.forEach((subEntry) => {
-        traverseFileTree(subEntry, callback, () => {
-          processedCount++;
-          if (processedCount === entries.length && onComplete) {
-            onComplete();
-          }
-        });
+      }, (error) => {
+        console.error("Error reading file:", error);
+        if (onComplete) onComplete();
       });
-    }, (error) => {
-      console.error("Error reading directory:", error);
+    } else if (entry.isDirectory) {
+      const dirReader = entry.createReader();
+      dirReader.readEntries((entries) => {
+        let processedCount = 0;
+        if (entries.length === 0) {
+          if (onComplete) onComplete();
+          return;
+        }
+        entries.forEach((subEntry) => {
+          traverseFileTree(subEntry, callback, () => {
+            processedCount++;
+            if (processedCount === entries.length && onComplete) {
+              onComplete();
+            }
+          });
+        });
+      }, (error) => {
+        console.error("Error reading directory:", error);
+        if (onComplete) onComplete();
+      });
+    } else {
       if (onComplete) onComplete();
-    });
-  } else {
-    if (onComplete) onComplete();
+    }
   }
-}
 
   function resetUI() {
     // Reset UI to initial state
@@ -275,17 +275,17 @@ function traverseFileTree(entry, callback, onComplete) {
     scanProgress.classList.remove('hidden');
     // launch worker
     if (worker) worker.terminate();
-    try{
-    worker = new Worker('web-worker.js');
-    worker.onmessage = handleWorkerMessage;
-    worker.postMessage({ action: 'init', files: fileList });
-    // request only top‐level after init
-    worker.addEventListener('message', ev => {
-      if (ev.data.action === 'ready') {
-        currentPath = initialPath = '';
-        requestDirectory('');  // send root listing
-      }
-    });
+    try {
+      worker = new Worker('web-worker.js');
+      worker.onmessage = handleWorkerMessage;
+      worker.postMessage({ action: 'init', files: fileList });
+      // request only top‐level after init
+      worker.addEventListener('message', ev => {
+        if (ev.data.action === 'ready') {
+          currentPath = initialPath = '';
+          requestDirectory('');  // send root listing
+        }
+      });
     } catch (err) {
       mdui.alert({
         headline: 'Failed to start worker',
@@ -319,8 +319,8 @@ function traverseFileTree(entry, callback, onComplete) {
       case 'allDone':
         endTime = performance.now();
         const duration = (endTime - startTime).toFixed(2);
-        console.log(`${totalFilesToScan} items (${directoryCache.size} directories) scanned in ${duration/1000} seconds`);
-        mdui.snackbar({ message: `${totalFilesToScan} items (${directoryCache.size} directories) scanned in ${duration/1000} seconds` });
+        console.log(`${totalFilesToScan} items (${directoryCache.size} directories) scanned in ${duration / 1000} seconds`);
+        mdui.snackbar({ message: `${totalFilesToScan} items (${directoryCache.size} directories) scanned in ${duration / 1000} seconds` });
         scanProgress.classList.add('hidden');
         scanProgress.removeAttribute('value');
         break;
@@ -334,63 +334,63 @@ function traverseFileTree(entry, callback, onComplete) {
     worker.postMessage({ action: 'getFiles', path });
   }
   function handleSizeUpdate({ path, size, action }) {
-  const norm = normalizePath(path);
-  const parent = dirname(norm);
+    const norm = normalizePath(path);
+    const parent = dirname(norm);
 
-  // Update the directory cache with the new size information
-  updateDirectoryCacheSize(parent, norm, size, action);
+    // Update the directory cache with the new size information
+    updateDirectoryCacheSize(parent, norm, size, action);
 
-  // Also update the directory's own entry if it exists in the cache
-  if (directoryCache.has(norm)) {
-    const listing = directoryCache.get(norm);
-    const idx = listing.findIndex(x => x.path === norm);
-    if (idx >= 0) {
-      const it = listing[idx];
-      listing[idx] = {
-        ...it,
-        size,
-        sizeStr: formatSize(size),
-        updateDone: true
-      };
-      directoryCache.set(norm, listing);
+    // Also update the directory's own entry if it exists in the cache
+    if (directoryCache.has(norm)) {
+      const listing = directoryCache.get(norm);
+      const idx = listing.findIndex(x => x.path === norm);
+      if (idx >= 0) {
+        const it = listing[idx];
+        listing[idx] = {
+          ...it,
+          size,
+          sizeStr: formatSize(size),
+          updateDone: true
+        };
+        directoryCache.set(norm, listing);
+      }
+      // Update progress bar only if totalFilesToScan is set
+      if (totalFilesToScan > 0) {
+        scanProgress.value = filesScanned / totalFilesToScan;
+      }
     }
-    // Update progress bar only if totalFilesToScan is set
-    if (totalFilesToScan > 0) {
-      scanProgress.value = filesScanned / totalFilesToScan;
-    }
-  }
 
-  // Determine if we need to re-render
-  let shouldRender = false;
+    // Determine if we need to re-render
+    let shouldRender = false;
 
-  // If we're in 'all' mode, always re-render
-  if (displayMode === 'all') {
-    shouldRender = true;
-  }
-  // If the updated directory is the current directory, re-render
-  else if (currentPath === norm) {
-    shouldRender = true;
-  }
-  // If the parent of the updated directory is the current directory, re-render
-  else if (currentPath === parent) {
-    shouldRender = true;
-  }
-  // If the current directory is an ancestor of the updated directory, re-render
-  else if (norm.startsWith(currentPath + '/')) {
-    shouldRender = true;
-  }
-
-  if (shouldRender) {
+    // If we're in 'all' mode, always re-render
     if (displayMode === 'all') {
-      renderAllFiles();
-    } else {
-      clearTimeout(renderTimeout);
-      renderTimeout = setTimeout(() => {
-        renderList(directoryCache.get(currentPath) || []);
-      }, 100);
+      shouldRender = true;
+    }
+    // If the updated directory is the current directory, re-render
+    else if (currentPath === norm) {
+      shouldRender = true;
+    }
+    // If the parent of the updated directory is the current directory, re-render
+    else if (currentPath === parent) {
+      shouldRender = true;
+    }
+    // If the current directory is an ancestor of the updated directory, re-render
+    else if (norm.startsWith(currentPath + '/')) {
+      shouldRender = true;
+    }
+
+    if (shouldRender) {
+      if (displayMode === 'all') {
+        renderAllFiles();
+      } else {
+        clearTimeout(renderTimeout);
+        renderTimeout = setTimeout(() => {
+          renderList(directoryCache.get(currentPath) || []);
+        }, 100);
+      }
     }
   }
-}
   function updateDirectoryCacheSize(parentDir, itemPath, size, action) {
     if (!directoryCache.has(parentDir)) return;
     const listing = directoryCache.get(parentDir);
@@ -460,9 +460,9 @@ function traverseFileTree(entry, callback, onComplete) {
   function formatSize(bytes) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ['Bytes','KB','MB','GB','TB'];
-    const i = Math.floor(Math.log(bytes)/Math.log(k));
-    return (bytes / Math.pow(k,i)).toFixed(2) + ' ' + sizes[i];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
   }
   /**
    * Formate un objet fichier/dossier avec taille lisible.
@@ -532,45 +532,45 @@ function traverseFileTree(entry, callback, onComplete) {
     fileListEl.innerHTML = '';
     fileListEl.appendChild(ul);
     fileListEl.scrollTop = scrollPosition;
-    if(sessionStorage.getItem('navigateTip') === 'true') return;
-//     mdui.alert({
-//         headline: 'Start Navigating!',
-//         description: 'You can now navigate through the directories while their size is being calculated, by clicking on them. Use the "Up one directory" button to go back. The loading bar near the top of the screen shows the total progress of the size calculation.',
-//     });
-//     sessionStorage.setItem('navigateTip', 'true');
- }
-
-  function renderAllFiles() {
-  // 1) collect every file entry
-  const allItems = [];
-  for (const files of directoryCache.values()) {
-    files.forEach(item => {
-      if (!item.isDirectory) {
-        allItems.push(item);
-      }
-    });
+    if (sessionStorage.getItem('navigateTip') === 'true') return;
+    //     mdui.alert({
+    //         headline: 'Start Navigating!',
+    //         description: 'You can now navigate through the directories while their size is being calculated, by clicking on them. Use the "Up one directory" button to go back. The loading bar near the top of the screen shows the total progress of the size calculation.',
+    //     });
+    //     sessionStorage.setItem('navigateTip', 'true');
   }
 
-  // 2) sort them
-  const sorted = sortItems(allItems, sortMethod);
-
-  // 3) render exactly like renderList()
-  const ul = document.createElement('mdui-list');
-  const totalSize = sorted.reduce((sum, f) => sum + (f.size || 0), 0);
-  sorted.forEach(item => {
-    // only show files larger than the filter size
-    if (fileSizeFilter > 0 && (item.size || 0) < fileSizeFilter) {
-      return;
+  function renderAllFiles() {
+    // 1) collect every file entry
+    const allItems = [];
+    for (const files of directoryCache.values()) {
+      files.forEach(item => {
+        if (!item.isDirectory) {
+          allItems.push(item);
+        }
+      });
     }
-    ul.appendChild(createListItem(item, totalSize));
-  });
 
-  // 4) swap into the DOM
-  const scrollPosition = fileListEl.scrollTop;
-  fileListEl.innerHTML = '';
-  fileListEl.appendChild(ul);
-  fileListEl.scrollTop = scrollPosition;
-}
+    // 2) sort them
+    const sorted = sortItems(allItems, sortMethod);
+
+    // 3) render exactly like renderList()
+    const ul = document.createElement('mdui-list');
+    const totalSize = sorted.reduce((sum, f) => sum + (f.size || 0), 0);
+    sorted.forEach(item => {
+      // only show files larger than the filter size
+      if (fileSizeFilter > 0 && (item.size || 0) < fileSizeFilter) {
+        return;
+      }
+      ul.appendChild(createListItem(item, totalSize));
+    });
+
+    // 4) swap into the DOM
+    const scrollPosition = fileListEl.scrollTop;
+    fileListEl.innerHTML = '';
+    fileListEl.appendChild(ul);
+    fileListEl.scrollTop = scrollPosition;
+  }
 
   /**
    * Trie les éléments selon la méthode choisie.
@@ -630,7 +630,7 @@ function traverseFileTree(entry, callback, onComplete) {
     const isIndeterminate = getIndeterminateStatus(item);
     const progressHTML = generateProgressHTML(item, proportion, isIndeterminate);
     if (item.isDirectory) {
-      li.innerHTML = `${getFileName(item.name)}<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg></mdui-icon>${progressHTML}<span slot="description">${isIndeterminate?"Calculating size...":`<b>${formatSize(item.size)}</b>`}</span>`;
+      li.innerHTML = `${getFileName(item.name)}<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg></mdui-icon>${progressHTML}<span slot="description">${isIndeterminate ? "Calculating size..." : `<b>${formatSize(item.size)}</b>`}</span>`;
     } else {
       li.innerHTML = `${getFileName(item.name)}${getFileIcon(item.name)}${progressHTML}<span slot="description"><b>${formatSize(item.size)}</b></span>`;
     }
@@ -640,8 +640,8 @@ function traverseFileTree(entry, callback, onComplete) {
       } else {
         const file = await getFileFromPath(item.path);
         console.log('Opening file:', file);
-        if (!file){
-          return mdui.snackbar({ message: 'Failed to open file. 😔' });
+        if (!file) {
+          return mdui.snackbar({ message: 'Failed to open file.' });
         }
         openFilePreview(file)
       }
@@ -687,11 +687,11 @@ function traverseFileTree(entry, callback, onComplete) {
     return `<mdui-linear-progress value="${proportion}"></mdui-linear-progress>`;
   }
 
-    /**
-   * Retourne l'icône appropriée pour un fichier.
-   * @param {string} fileName
-   * @returns {string}
-   * */
+  /**
+ * Retourne l'icône appropriée pour un fichier.
+ * @param {string} fileName
+ * @returns {string}
+ * */
   function getFileIcon(fileName) {
     switch (fileName.split('.').pop().toLowerCase()) {
       case 'txt':
@@ -758,61 +758,58 @@ function traverseFileTree(entry, callback, onComplete) {
         return '<mdui-icon slot="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T720-80H240Zm280-520v-200H240v640h480v-440H520ZM240-800v200-200 640-640Z"/></svg></mdui-icon>';
     }
   }
-   /**
-   * Extrait le nom du fichier depuis un chemin.
-   * @param {string} name
-   * @returns {string}
-   */
+  /**
+  * Extrait le nom du fichier depuis un chemin.
+  * @param {string} name
+  * @returns {string}
+  */
   function getFileName(name) {
     return name.substring(name.lastIndexOf("\\") + 1);
   }
 
   // Function to get the File object from the path
-function getFileFromPath(path) {
-  // Since we don't have direct access to the File objects in the cache,
-  // we need to ask the worker to find it for us.
-  return new Promise((resolve, reject) => {
-    if (!worker) return reject('Worker not initialized');
-    const listener = (ev) => {
-      if (ev.data.action === 'fileResult' && ev.data.path === path) {
-        worker.removeEventListener('message', listener);
-        resolve(ev.data.file || null);
-      }
-    };
-    worker.addEventListener('message', listener);
-    worker.postMessage({ action: 'getFileByPath', path });
+  function getFileFromPath(path) {
+    // Since we don't have direct access to the File objects in the cache,
+    // we need to ask the worker to find it for us.
+    return new Promise((resolve, reject) => {
+      if (!worker) return reject('Worker not initialized');
+      const listener = (ev) => {
+        if (ev.data.action === 'fileResult' && ev.data.path === path) {
+          worker.removeEventListener('message', listener);
+          resolve(ev.data.file || null);
+        }
+      };
+      worker.addEventListener('message', listener);
+      worker.postMessage({ action: 'getFileByPath', path });
+    });
+  }
+
+  filePreviewDialog.addEventListener('closed', () => {
+    filePreviewDialog.innerHTML = '';
   });
-}
 
-filePreviewDialog.addEventListener('closed', () => {
-  filePreviewDialog.innerHTML = '';
-});
+  function openFilePreview(file) {
+    const dialogTitle = file.name.length > 30 ? file.name.slice(0, 15) + '...' + file.name.slice(-15) : file.name;
+    const dialogTitleEl = document.createElement('h3');
+    dialogTitleEl.textContent = dialogTitle;
+    dialogTitleEl.style.textAlign = 'center';
+    dialogTitleEl.style.marginBottom = '10px';
 
-function openFilePreview(file){
-  const dialogTitle = file.name.length > 30 ? file.name.slice(0, 15) + '...' + file.name.slice(-15) : file.name;
-  const dialogTitleEl = document.createElement('h3');
-  dialogTitleEl.textContent = dialogTitle;
-  dialogTitleEl.style.textAlign = 'center';
-  dialogTitleEl.style.marginBottom = '10px';
-
-  const closeDialogButton = document.createElement('mdui-button');
-  closeDialogButton.textContent = 'Close';
-  closeDialogButton.variant = 'text';
-  closeDialogButton.style.display = 'block';
-  closeDialogButton.style.margin = '10px auto 0 auto';
-  closeDialogButton.onclick = () => {
-    filePreviewDialog.removeAttribute('open');
-  };
-  filePreviewDialog.innerHTML = '';
+    const closeDialogButton = document.createElement('mdui-button');
+    closeDialogButton.textContent = 'Close';
+    closeDialogButton.variant = 'text';
+    closeDialogButton.style.display = 'block';
+    closeDialogButton.style.margin = '10px auto 0 auto';
+    closeDialogButton.onclick = () => {
+      filePreviewDialog.removeAttribute('open');
+    };
+    filePreviewDialog.innerHTML = '';
 
 
-  // Handle different file types
-  if (file.type.startsWith("image")){
-    const reader = new FileReader();
-    reader.onload = () => {
-      console.log(reader.result);
+    // Handle different file types
+    if (file.type.startsWith("image")) {
       const imageEl = document.createElement('img');
-      imageEl.src = reader.result;
+      imageEl.src = URL.createObjectURL(file);
       imageEl.style.maxWidth = '30rem';
       imageEl.style.maxHeight = '65vh';
 
@@ -820,59 +817,44 @@ function openFilePreview(file){
       filePreviewDialog.appendChild(imageEl);
       filePreviewDialog.appendChild(closeDialogButton);
       filePreviewDialog.setAttribute('open', '');
-    };
-    reader.readAsDataURL(file);
-  }
-  else if (file.type.startsWith("text") || file.type === "application/json"){
-    file.text().then(text => {
-      console.log(text);
-      const textFieldEl = document.createElement('mdui-text-field');
-      textFieldEl.value = text;
-      textFieldEl.rows='10';
-      textFieldEl.readonly='true'
-      textFieldEl.style.width = '30rem';
+    }
+    else if (file.type.startsWith("text") || file.type === "application/json") {
+      file.text().then(text => {
+        console.log(text);
+        const textFieldEl = document.createElement('mdui-text-field');
+        textFieldEl.value = text;
+        textFieldEl.rows = '10';
+        textFieldEl.readonly = 'true'
+        textFieldEl.style.width = '30rem';
+        filePreviewDialog.appendChild(dialogTitleEl);
+        filePreviewDialog.appendChild(textFieldEl);
+        filePreviewDialog.appendChild(closeDialogButton);
+        filePreviewDialog.setAttribute('open', '');
+      });
+    }
+    else if (file.type.startsWith("audio") || file.type.startsWith("video")) {
+      const mediaEl = document.createElement(file.type.startsWith("audio") ? 'audio' : 'video');
+      mediaEl.controls = true;
+      mediaEl.src = URL.createObjectURL(file); // ✅ efficient blob URL
+      mediaEl.style.maxWidth = '100%';
+      mediaEl.style.maxHeight = '65vh';
+
       filePreviewDialog.appendChild(dialogTitleEl);
-      filePreviewDialog.appendChild(textFieldEl);
+      filePreviewDialog.appendChild(mediaEl);
       filePreviewDialog.appendChild(closeDialogButton);
       filePreviewDialog.setAttribute('open', '');
-    });
+
+      // Revoke URL when closed to free memory
+      closeDialogButton.onclick = () => {
+        URL.revokeObjectURL(mediaEl.src);
+        filePreviewDialog.removeAttribute('open');
+      };
+    }
+    else {
+      console.warn('Failed to open:', file.type)
+      mdui.snackbar({ message: 'Cannot open this file type' });
+    }
   }
-  else if (file.type.startsWith("audio")){
-    const reader = new FileReader();
-    reader.onload = () => {
-      console.log(reader.result);
-      const audioEl = document.createElement('audio');
-      audioEl.controls = true;
-      audioEl.src = reader.result;
-      audioEl.style.width = '100%';
-      filePreviewDialog.appendChild(dialogTitleEl);
-      filePreviewDialog.appendChild(audioEl);
-      filePreviewDialog.appendChild(closeDialogButton);
-      filePreviewDialog.setAttribute('open', '');
-    };
-    reader.readAsDataURL(file);
-  }
-  else if (file.type.startsWith("video")){
-    const reader = new FileReader();
-    reader.onload = () => {
-      console.log(reader.result);
-      const videoEl = document.createElement('video');
-      videoEl.controls = true;
-      videoEl.src = reader.result;
-      videoEl.style.maxWidth = '100%';
-      videoEl.style.maxHeight = '65vh';
-      filePreviewDialog.appendChild(dialogTitleEl);
-      filePreviewDialog.appendChild(videoEl);
-      filePreviewDialog.appendChild(closeDialogButton);
-      filePreviewDialog.setAttribute('open', '');
-    };
-    reader.readAsDataURL(file);
-  }
-  else {
-    console.warn('Failed to open:', file.type)
-    mdui.snackbar({ message: 'Cannot open this file type' });
-  }
-}
 });
 
 
